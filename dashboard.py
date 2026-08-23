@@ -1,4 +1,5 @@
 import hashlib
+import re
 import urllib.parse
 from datetime import datetime
 
@@ -87,6 +88,36 @@ def buscar_e_persistir(cfg: dict):
 
 def id_manual(link: str) -> str:
     return "manual_" + hashlib.md5(link.strip().encode("utf-8")).hexdigest()[:12]
+
+
+def nome_a_partir_do_link(link: str) -> str:
+    """Tenta um nome razoável a partir do próprio link, já que o link é o
+    único dado obrigatório no cadastro manual. Pega o segmento do caminho
+    com mais palavras (o slug do título) em vez de sempre o último — em
+    links tipo Amazon (/titulo-do-produto/dp/ASIN) o último segmento é só
+    o código do produto, não o título."""
+    caminho = urllib.parse.urlparse(link).path
+    melhor = ""
+    for segmento in caminho.split("/"):
+        if not segmento:
+            continue
+        limpo = urllib.parse.unquote(segmento)
+        limpo = re.sub(r"\.(html?|php|aspx?)$", "", limpo, flags=re.IGNORECASE)
+        limpo = re.sub(r"[-_+]+", " ", limpo).strip()
+        if len(limpo.split()) > len(melhor.split()):
+            melhor = limpo
+    return melhor.title() if melhor else "Produto"
+
+
+def detectar_nicho(link: str, keywords: list[str]) -> str:
+    """Casa palavras das keywords configuradas contra o texto do link para
+    sugerir o nicho automaticamente."""
+    texto = urllib.parse.unquote(link).lower()
+    for kw in keywords:
+        palavras = [p for p in kw.lower().split() if len(p) > 3]
+        if any(p in texto for p in palavras):
+            return kw
+    return keywords[0] if keywords else "geral"
 
 
 def formatar_data(iso: str) -> str:
@@ -207,23 +238,32 @@ def view_ofertas(cfg: dict):
         mostrar_todas = st.toggle("Mostrar esgotados", value=True)
 
     with st.expander("➕ Adicionar oferta manualmente (colar link)"):
+        st.caption(
+            "Só o link e o preço são obrigatórios — nome, nicho e desconto são "
+            "preenchidos automaticamente (e podem ser ajustados aqui se quiser)."
+        )
         with st.form("form_manual", clear_on_submit=True):
-            link = st.text_input("Link do produto (afiliado)")
-            nome = st.text_input("Nome do produto")
-            c1, c2, c3 = st.columns(3)
-            preco = c1.number_input("Preço (R$)", min_value=0.0, step=0.01)
-            desconto = c2.number_input("Desconto (%)", min_value=0, max_value=100, step=1)
-            nicho = c3.selectbox("Nicho", options=cfg["keywords"] or ["geral"])
-            imagem_url = st.text_input("URL da imagem (opcional)")
-            fonte = st.text_input("Loja/fonte", value="Manual")
+            link = st.text_input("Link do produto (afiliado) *")
+            c1, c2 = st.columns(2)
+            preco = c1.number_input("Preço (R$) *", min_value=0.0, step=0.01)
+            desconto = c2.number_input(
+                "Desconto (%)", min_value=0, max_value=100, step=1, value=cfg["min_discount_percent"]
+            )
+            with st.expander("Ajustar nome/nicho/imagem (opcional)"):
+                nome_manual = st.text_input("Nome do produto (deixe em branco para detectar do link)")
+                nicho_manual = st.selectbox("Nicho", options=["(detectar automaticamente)"] + cfg["keywords"])
+                imagem_url = st.text_input("URL da imagem")
+                fonte = st.text_input("Loja/fonte", value="Manual")
             if st.form_submit_button("Adicionar ao repositório"):
-                if link and nome:
+                if link and preco:
                     storage.registrar_oferta(
                         {
                             "id": id_manual(link),
                             "fonte": fonte or "Manual",
-                            "keyword": nicho,
-                            "nome": nome,
+                            "keyword": nicho_manual
+                            if nicho_manual != "(detectar automaticamente)"
+                            else detectar_nicho(link, cfg["keywords"]),
+                            "nome": nome_manual or nome_a_partir_do_link(link),
                             "preco": preco,
                             "desconto_percent": int(desconto),
                             "link_afiliado": link,
@@ -233,7 +273,7 @@ def view_ofertas(cfg: dict):
                     st.success("Oferta adicionada. Já aparece na lista e na vitrine pública.")
                     st.rerun()
                 else:
-                    st.warning("Preencha ao menos o link e o nome do produto.")
+                    st.warning("Preencha ao menos o link e o preço.")
 
     ofertas = todas if mostrar_todas else disponiveis
     if ofertas:
