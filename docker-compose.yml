@@ -1,0 +1,32 @@
+services:
+  web:
+    image: nginx:alpine
+    volumes:
+      - ./public/linktree:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    command: >
+      streamlit run dashboard.py
+      --server.address=0.0.0.0
+      --server.port=8501
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/ofertas.db
+    volumes:
+      - ofertas_data:/app/data
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python main.py --loop
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/ofertas.db
+    volumes:
+      - ofertas_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ofertas_data:

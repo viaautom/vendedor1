@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendedor1 — Links</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --card: #141a2a;
+    --border: rgba(255,255,255,0.08);
+    --text: #e6e9f0;
+    --text-muted: #8b93a7;
+    --accent: #22d3ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% -10%, rgba(34,211,238,0.18), transparent 45%), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1.25rem;
+  }
+  main { width: 100%; max-width: 480px; text-align: center; }
+  .avatar {
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+  p.subtitle { color: var(--text-muted); margin: 0 0 2rem; font-size: 0.95rem; }
+  .links { display: flex; flex-direction: column; gap: 0.85rem; }
+  .link-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .link-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .link-btn svg { flex: 0 0 auto; width: 22px; height: 22px; }
+  .link-btn span { flex: 1; text-align: left; }
+  footer { margin-top: 2.5rem; color: var(--text-muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<main>
+  <div class="avatar">🛒</div>
+  <h1>Vendedor1</h1>
+  <p class="subtitle">Ofertas de fitness &amp; bem-estar todos os dias</p>
+
+  <!--
+    Edite os links abaixo com as URLs reais antes de publicar.
+    Deixe href="#" (ou remova o <a>) para qualquer link que ainda não tiver.
+  -->
+  <nav class="links">
+    <a class="link-btn" href="https://t.me/SEU_CANAL" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+      <span>Canal no Telegram</span>
+    </a>
+    <a class="link-btn" href="https://wa.me/55SEUNUMERO" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <span>WhatsApp</span>
+    </a>
+    <a class="link-btn" href="https://instagram.com/SEU_PERFIL" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/></svg>
+      <span>Instagram</span>
+    </a>
+    <a class="link-btn" href="https://tiktok.com/@SEU_PERFIL" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c.4 2 1.8 3.6 4 3.9v2.7c-1.4 0-2.8-.4-4-1.2v6.3a5.6 5.6 0 1 1-4.8-5.5v2.8a2.8 2.8 0 1 0 2 2.7V3h2.8Z"/></svg>
+      <span>TikTok</span>
+    </a>
+    <a class="link-btn" href="https://seusite.com.br" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z"/></svg>
+      <span>Site / Loja</span>
+    </a>
+  </nav>
+
+  <footer>© <span id="ano"></span> Vendedor1</footer>
+</main>
+<script>
+  document.getElementById("ano").textContent = new Date().getFullYear();
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+{
+  "project": "Vendedor1 - Buscador de Ofertas",
+  "updated": "2026-08-22",
+  "overview": {
+    "current_phase": "Pré-conexão: base estável antes da Amazon e Shopee",
+    "owner": "Vendedor",
+    "next_focus": "Validar ambiente, Telegram e painel de testes antes da API externa",
+    "progress_percent": 68
+  },
+  "tasks": [
+    {
+      "id": "D1",
+      "title": "Configuração inicial do projeto",
+      "status": "done",
+      "progress": 100,
+      "priority": "Critical",
+      "weight": 1,
+      "notes": "Estrutura inicial criada e configuração base do ambiente."
+    },
+    {
+      "id": "D2",
+      "title": "Integração com Telegram",
+      "status": "done",
+      "progress": 100,
+      "priority": "High",
+      "weight": 1,
+      "notes": "Bot e canal configurados para postagem automatizada."
+    },
+    {
+      "id": "D3",
+      "title": "Persistência de ofertas e deduplicação",
+      "status": "done",
+      "progress": 100,
+      "priority": "High",
+      "weight": 1,
+      "notes": "SQLite para evitar repostagens duplicadas."
+    },
+    {
+      "id": "D4",
+      "title": "Validação do ambiente e .env",
+      "status": "in_progress",
+      "progress": 80,
+      "priority": "Critical",
+      "weight": 1,
+      "notes": "Confirmar que todas as variáveis necessárias existem e não estão vazias."
+    },
+    {
+      "id": "D5",
+      "title": "Teste manual de envio para Telegram",
+      "status": "in_progress",
+      "progress": 75,
+      "priority": "High",
+      "weight": 1,
+      "notes": "Enviar uma oferta fake para validar canal, bot e mensagens."
+    },
+    {
+      "id": "D6",
+      "title": "Painel real do sistema de busca",
+      "status": "done",
+      "progress": 100,
+      "priority": "High",
+      "weight": 1,
+      "notes": "Dashboard funcional com leitura de configurações e busca manual."
+    },
+    {
+      "id": "D7",
+      "title": "Proteção de erros sem credenciais",
+      "status": "planned",
+      "progress": 25,
+      "priority": "Medium",
+      "weight": 1,
+      "notes": "Evitar crashes quando API ou chaves ainda não estão configuradas."
+    },
+    {
+      "id": "D8",
+      "title": "Logs e monitoramento de execução",
+      "status": "planned",
+      "progress": 15,
+      "priority": "Medium",
+      "weight": 1,
+      "notes": "Registrar falhas, sucesso e tempo de execução para debug."
+    },
+    {
+      "id": "D9",
+      "title": "Ativação da Amazon PA API",
+      "status": "planned",
+      "progress": 0,
+      "priority": "Critical",
+      "weight": 1,
+      "notes": "Validar credenciais reais e fazer busca funcional."
+    },
+    {
+      "id": "D10",
+      "title": "Ativação da Shopee Affiliate API",
+      "status": "planned",
+      "progress": 0,
+      "priority": "Critical",
+      "weight": 1,
+      "notes": "Validar Partner ID e Partner Key e testar a resposta real da API."
+    }
+  ]
+}
