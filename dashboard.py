@@ -153,14 +153,44 @@ def render_offer_grid(ofertas: list[dict], colunas: int = 3):
                 render_offer_card(oferta, grupos)
 
 
+def render_offer_grid_agrupado(ofertas: list[dict], colunas: int = 3):
+    por_nicho: dict[str, list[dict]] = {}
+    for oferta in ofertas:
+        nicho = oferta.get("keyword") or "Outros"
+        por_nicho.setdefault(nicho, []).append(oferta)
+
+    for nicho, itens in por_nicho.items():
+        st.markdown(f'<div class="section-title">🏷️ {nicho} ({len(itens)})</div>', unsafe_allow_html=True)
+        render_offer_grid(itens, colunas)
+        st.write("")
+
+
 def view_ofertas(cfg: dict):
-    col1, col2, col3, col4 = st.columns(4)
     todas = storage.listar_ofertas()
     disponiveis = [o for o in todas if o.get("disponivel")]
-    col1.markdown(ui.stat_card("📦", "No repositório", len(todas)), unsafe_allow_html=True)
-    col2.markdown(ui.stat_card("🟢", "Disponíveis", len(disponiveis)), unsafe_allow_html=True)
-    col3.markdown(ui.stat_card("📉", "Desconto mínimo", f"{cfg['min_discount_percent']}%"), unsafe_allow_html=True)
-    col4.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
+    nao_enviados = storage.contagem_nao_enviados()
+    enviados_hoje = storage.contagem_enviados_hoje()
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.markdown(ui.stat_card("🔗", "Total de links", len(todas)), unsafe_allow_html=True)
+    col2.markdown(ui.stat_card("📭", "Não enviados", nao_enviados), unsafe_allow_html=True)
+    col3.markdown(ui.stat_card("🟢", "Disponíveis", len(disponiveis)), unsafe_allow_html=True)
+    col4.markdown(ui.stat_card("📉", "Desconto mínimo", f"{cfg['min_discount_percent']}%"), unsafe_allow_html=True)
+    col5.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
+
+    with st.expander("📊 Ver total de links por nicho"):
+        for linha in storage.contagem_por_nicho():
+            st.markdown(
+                f'<span class="chip">{linha["keyword"]}: <strong>{linha["total"]}</strong></span>',
+                unsafe_allow_html=True,
+            )
+
+    st.write("")
+    st.markdown('<div class="section-title">Enviados hoje</div>', unsafe_allow_html=True)
+    col_tg, col_wa, col_wg = st.columns(3)
+    col_tg.markdown(ui.stat_card("📨", "Telegram", enviados_hoje["telegram"]), unsafe_allow_html=True)
+    col_wa.markdown(ui.stat_card("💬", "WhatsApp (pessoal)", enviados_hoje["whatsapp"]), unsafe_allow_html=True)
+    col_wg.markdown(ui.stat_card("📲", "Grupos WhatsApp", enviados_hoje["whatsapp_grupo"]), unsafe_allow_html=True)
 
     st.write("")
     row = st.columns([1, 1, 1])
@@ -208,7 +238,7 @@ def view_ofertas(cfg: dict):
     ofertas = todas if mostrar_todas else disponiveis
     if ofertas:
         st.markdown(f'<div class="section-title">Ofertas no repositório: {len(ofertas)}</div>', unsafe_allow_html=True)
-        render_offer_grid(ofertas)
+        render_offer_grid_agrupado(ofertas)
     else:
         st.info("Nenhuma oferta no repositório ainda. Clique em 'Buscar ofertas agora' ou adicione uma manualmente.")
 

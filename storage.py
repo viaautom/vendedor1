@@ -72,6 +72,16 @@ def _connect():
         conn.execute("ALTER TABLE ofertas_encontradas ADD COLUMN enviado_whatsapp_grupo INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass  # coluna já existe (banco criado antes desta versão)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS envios_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            oferta_id TEXT,
+            canal TEXT,
+            enviado_em TEXT
+        )
+        """
+    )
     return conn
 
 
@@ -218,8 +228,55 @@ def marcar_enviado(oferta_id: str, canal: str):
         f"UPDATE ofertas_encontradas SET {coluna} = 1 WHERE id = ?",
         (oferta_id,),
     )
+    conn.execute(
+        "INSERT INTO envios_log (oferta_id, canal, enviado_em) VALUES (?, ?, ?)",
+        (oferta_id, canal, datetime.utcnow().isoformat()),
+    )
     conn.commit()
     conn.close()
+
+
+# --- Estatísticas ---------------------------------------------------------
+
+def contagem_por_nicho(somente_disponiveis: bool = False) -> list[dict]:
+    conn = _connect()
+    query = "SELECT keyword, COUNT(*) AS total FROM ofertas_encontradas"
+    if somente_disponiveis:
+        query += " WHERE disponivel = 1"
+    query += " GROUP BY keyword ORDER BY total DESC"
+    linhas = conn.execute(query).fetchall()
+    conn.close()
+    return [{"keyword": keyword or "Outros", "total": total} for keyword, total in linhas]
+
+
+def contagem_nao_enviados() -> int:
+    """Ofertas que ainda não saíram por nenhum canal (Telegram, WhatsApp
+    pessoal ou grupo)."""
+    conn = _connect()
+    total = conn.execute(
+        """
+        SELECT COUNT(*) FROM ofertas_encontradas
+        WHERE enviado_telegram = 0 AND enviado_whatsapp = 0 AND enviado_whatsapp_grupo = 0
+        """
+    ).fetchone()[0]
+    conn.close()
+    return total
+
+
+def contagem_enviados_hoje() -> dict:
+    """{'telegram': N, 'whatsapp': N, 'whatsapp_grupo': N} — envios cujo
+    enviado_em cai no dia de hoje (UTC)."""
+    hoje = datetime.utcnow().strftime("%Y-%m-%d")
+    conn = _connect()
+    linhas = conn.execute(
+        "SELECT canal, COUNT(*) FROM envios_log WHERE substr(enviado_em, 1, 10) = ? GROUP BY canal",
+        (hoje,),
+    ).fetchall()
+    conn.close()
+    contagem = {"telegram": 0, "whatsapp": 0, "whatsapp_grupo": 0}
+    for canal, total in linhas:
+        contagem[canal] = total
+    return contagem
 
 
 # --- Configurações (chave-valor) -------------------------------------------
