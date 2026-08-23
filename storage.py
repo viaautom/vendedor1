@@ -83,6 +83,10 @@ def _connect():
         conn.execute("ALTER TABLE ofertas_encontradas ADD COLUMN enviado_whatsapp_grupo INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass  # coluna já existe (banco criado antes desta versão)
+    try:
+        conn.execute("ALTER TABLE ofertas_encontradas ADD COLUMN destaque INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS envios_log (
@@ -222,7 +226,7 @@ def remover_oferta(oferta_id: str):
     conn.close()
 
 
-_COLUNAS_EDITAVEIS = {"nome", "preco", "desconto_percent", "keyword", "imagem_url", "link_afiliado"}
+_COLUNAS_EDITAVEIS = {"nome", "preco", "desconto_percent", "keyword", "imagem_url", "link_afiliado", "destaque"}
 
 
 def atualizar_oferta(oferta_id: str, campos: dict):

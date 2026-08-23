@@ -199,6 +199,13 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
     .product-card:hover .offer-title {{
         color: var(--accent) !important;
     }}
+    .featured-card {{
+        display: block;
+        border: 1px solid {accent}80;
+        border-radius: 16px;
+        padding: 0.5rem;
+        box-shadow: 0 0 22px {accent}26;
+    }}
 
     .banner-card {{
         display: block;

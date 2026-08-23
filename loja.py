@@ -1,9 +1,10 @@
 """
 Vitrine pública de ofertas — mostra só o que está disponível no
-repositório (storage.ofertas_encontradas), agrupado por nicho. Sem senha,
-sem ações server-side: cada card é um link direto pra página de vendas.
-Título, subtítulo e banners promocionais são editados pelo painel admin
-(aba "🛍️ Vitrine") e lidos daqui em tempo real.
+repositório (storage.ofertas_encontradas). Produtos marcados como
+destaque aparecem numa seção fixa no topo; os demais ficam organizados
+por nicho, em seções que abrem com clique. Sem senha, sem ações
+server-side: cada card é um link direto pra página de vendas. Título,
+subtítulo e banners são editados no painel admin (aba "🛍️ Vitrine").
 """
 import streamlit as st
 
@@ -11,11 +12,20 @@ import storage
 import ui_common as ui
 
 
-def render_produto(oferta: dict) -> str:
+def render_produto(oferta: dict, destaque: bool = False) -> str:
     link = ui.safe_url(oferta.get("link_afiliado", ""))
     if not link:
         return ""
-    return f'<a class="product-card" href="{link}" target="_blank" rel="noopener">' + ui.oferta_card_inner_html(oferta) + "</a>"
+    classe = "product-card featured-card" if destaque else "product-card"
+    return f'<a class="{classe}" href="{link}" target="_blank" rel="noopener">' + ui.oferta_card_inner_html(oferta) + "</a>"
+
+
+def render_produtos_grid(itens: list[dict], destaque: bool = False, colunas: int = 3):
+    cols = st.columns(colunas)
+    for idx, oferta in enumerate(itens):
+        with cols[idx % colunas]:
+            with st.container(border=True):
+                st.markdown(render_produto(oferta, destaque), unsafe_allow_html=True)
 
 
 def main():
@@ -31,10 +41,10 @@ def main():
     if banners:
         cols = st.columns(min(len(banners), 3) or 1)
         for idx, banner in enumerate(banners):
-            html = ui.banner_html(banner)
-            if html:
+            banner_html = ui.banner_html(banner)
+            if banner_html:
                 with cols[idx % len(cols)]:
-                    st.markdown(html, unsafe_allow_html=True)
+                    st.markdown(banner_html, unsafe_allow_html=True)
         st.write("")
 
     ofertas = storage.listar_ofertas(somente_disponiveis=True)
@@ -42,19 +52,21 @@ def main():
         st.info("Nenhuma oferta disponível no momento. Volte em breve!")
         return
 
+    destacados = [o for o in ofertas if o.get("destaque")]
+    if destacados:
+        st.markdown(f'<div class="section-title">⭐ Destaques ({len(destacados)})</div>', unsafe_allow_html=True)
+        render_produtos_grid(destacados, destaque=True)
+        st.write("")
+
     por_nicho: dict[str, list[dict]] = {}
     for oferta in ofertas:
         nicho = oferta.get("keyword") or "Outros"
         por_nicho.setdefault(nicho, []).append(oferta)
 
+    st.markdown('<div class="section-title">🗂️ Categorias</div>', unsafe_allow_html=True)
     for nicho, itens in por_nicho.items():
-        st.markdown(f'<div class="section-title">🏷️ {nicho} ({len(itens)})</div>', unsafe_allow_html=True)
-        cols = st.columns(3)
-        for idx, oferta in enumerate(itens):
-            with cols[idx % 3]:
-                with st.container(border=True):
-                    st.markdown(render_produto(oferta), unsafe_allow_html=True)
-        st.write("")
+        with st.expander(f"🏷️ {nicho} ({len(itens)})"):
+            render_produtos_grid(itens)
 
 
 if __name__ == "__main__":

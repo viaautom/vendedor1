@@ -137,6 +137,10 @@ def render_offer_edit_form(oferta: dict, cfg: dict):
         nicho = st.selectbox("Nicho", options=opcoes_nicho or ["geral"], index=indice)
         imagem_url = st.text_input("URL da imagem", value=oferta.get("imagem_url", ""))
         link = st.text_input("Link", value=oferta.get("link_afiliado", ""))
+        destaque = st.checkbox(
+            "⭐ Produto em destaque (aparece em destaque no topo da vitrine)",
+            value=bool(oferta.get("destaque")),
+        )
 
         col_salvar, col_cancelar = st.columns(2)
         salvar = col_salvar.form_submit_button("💾 Salvar", use_container_width=True)
@@ -151,6 +155,7 @@ def render_offer_edit_form(oferta: dict, cfg: dict):
                     "keyword": nicho,
                     "imagem_url": imagem_url,
                     "link_afiliado": link,
+                    "destaque": 1 if destaque else 0,
                 },
             )
             del st.session_state["editando_id"]
@@ -172,7 +177,8 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
         with col_img:
             st.markdown(ui.thumb_html(oferta.get("imagem_url", "")), unsafe_allow_html=True)
         with col_info:
-            nome = html.escape(str(oferta.get("nome", "Oferta")))
+            estrela = "⭐ " if oferta.get("destaque") else ""
+            nome = estrela + html.escape(str(oferta.get("nome", "Oferta")))
             desconto = oferta.get("desconto_percent", 0)
             desconto_txt = f" · -{desconto}%" if desconto else ""
             st.markdown(
