@@ -1,4 +1,5 @@
 import hashlib
+import html
 import re
 import urllib.parse
 from datetime import datetime
@@ -16,6 +17,7 @@ from config import (
     TELEGRAM_CHANNEL_ID,
 )
 from clients import amazon_client, shopee_client
+import scraper
 import settings
 import storage
 import telegram_poster
@@ -110,17 +112,6 @@ def nome_a_partir_do_link(link: str) -> str:
     return melhor.title() if melhor else "Produto"
 
 
-def detectar_nicho(link: str, keywords: list[str]) -> str:
-    """Casa palavras das keywords configuradas contra o texto do link para
-    sugerir o nicho automaticamente."""
-    texto = urllib.parse.unquote(link).lower()
-    for kw in keywords:
-        palavras = [p for p in kw.lower().split() if len(p) > 3]
-        if any(p in texto for p in palavras):
-            return kw
-    return keywords[0] if keywords else "geral"
-
-
 def formatar_data(iso: str) -> str:
     try:
         return datetime.fromisoformat(iso).strftime("%d/%m/%Y %H:%M")
@@ -128,73 +119,141 @@ def formatar_data(iso: str) -> str:
         return "—"
 
 
-def render_offer_card(oferta: dict, grupos: list[dict]):
+def render_offer_edit_form(oferta: dict, cfg: dict):
+    with st.form(f"form_edit_{oferta['id']}"):
+        nome = st.text_input("Nome", value=oferta.get("nome", ""))
+        c1, c2 = st.columns(2)
+        preco = c1.number_input(
+            "Preço (R$)", min_value=0.0, value=float(oferta.get("preco") or 0), step=0.01
+        )
+        desconto = c2.number_input(
+            "Desconto (%)", min_value=0, max_value=100, value=int(oferta.get("desconto_percent") or 0)
+        )
+        opcoes_nicho = list(cfg["nichos"])
+        nicho_atual = oferta.get("keyword") or ""
+        if nicho_atual and nicho_atual not in opcoes_nicho:
+            opcoes_nicho = [nicho_atual] + opcoes_nicho
+        indice = opcoes_nicho.index(nicho_atual) if nicho_atual in opcoes_nicho else 0
+        nicho = st.selectbox("Nicho", options=opcoes_nicho or ["geral"], index=indice)
+        imagem_url = st.text_input("URL da imagem", value=oferta.get("imagem_url", ""))
+        link = st.text_input("Link", value=oferta.get("link_afiliado", ""))
+
+        col_salvar, col_cancelar = st.columns(2)
+        salvar = col_salvar.form_submit_button("💾 Salvar", use_container_width=True)
+        cancelar = col_cancelar.form_submit_button("Cancelar", use_container_width=True)
+        if salvar:
+            storage.atualizar_oferta(
+                oferta["id"],
+                {
+                    "nome": nome,
+                    "preco": preco,
+                    "desconto_percent": int(desconto),
+                    "keyword": nicho,
+                    "imagem_url": imagem_url,
+                    "link_afiliado": link,
+                },
+            )
+            del st.session_state["editando_id"]
+            st.rerun()
+        if cancelar:
+            del st.session_state["editando_id"]
+            st.rerun()
+
+
+def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
     with st.container(border=True):
-        st.markdown(ui.oferta_card_inner_html(oferta), unsafe_allow_html=True)
-        st.markdown(
-            f'<div class="offer-meta">🏷️ {oferta.get("keyword", "—")} · '
-            f'🕓 {formatar_data(oferta.get("ultima_vez_em"))} · '
-            f'{"🟢 disponível" if oferta.get("disponivel") else "🔴 esgotado"}</div>',
-            unsafe_allow_html=True,
+        if st.session_state.get("editando_id") == oferta["id"]:
+            render_offer_edit_form(oferta, cfg)
+            return
+
+        col_img, col_info, col_tg, col_wa, col_conf, col_grp, col_edit, col_del = st.columns(
+            [1, 5, 1, 1, 1, 1, 1, 1]
         )
-        st.markdown(
-            ui.send_status_html(
-                bool(oferta.get("enviado_telegram")),
-                bool(oferta.get("enviado_whatsapp")),
-                bool(oferta.get("enviado_whatsapp_grupo")),
-            ),
-            unsafe_allow_html=True,
-        )
-        col_tg, col_wpp, col_conf = st.columns([1, 1, 1])
+        with col_img:
+            st.markdown(ui.thumb_html(oferta.get("imagem_url", "")), unsafe_allow_html=True)
+        with col_info:
+            nome = html.escape(str(oferta.get("nome", "Oferta")))
+            desconto = oferta.get("desconto_percent", 0)
+            desconto_txt = f" · -{desconto}%" if desconto else ""
+            st.markdown(
+                f'<div class="offer-row-title">{nome}</div>'
+                f'<div class="offer-row-meta">R$ {float(oferta.get("preco", 0) or 0):.2f}'
+                f"{desconto_txt} · 🏷️ {html.escape(str(oferta.get('keyword') or '—'))} · "
+                f'🕓 {formatar_data(oferta.get("ultima_vez_em"))} · '
+                f'{"🟢 disponível" if oferta.get("disponivel") else "🔴 esgotado"}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                ui.send_status_html(
+                    bool(oferta.get("enviado_telegram")),
+                    bool(oferta.get("enviado_whatsapp")),
+                    bool(oferta.get("enviado_whatsapp_grupo")),
+                ),
+                unsafe_allow_html=True,
+            )
         with col_tg:
-            if st.button("📨 Telegram", key=f"telegram_{oferta['id']}", use_container_width=True):
+            if st.button("📨", key=f"telegram_{oferta['id']}", use_container_width=True, help="Enviar no Telegram"):
                 ok = telegram_poster.postar_oferta(oferta)
                 if ok:
                     storage.marcar_enviado(oferta["id"], "telegram")
                     st.rerun()
                 else:
                     st.error("Falha ao enviar")
-        with col_wpp:
-            st.link_button("💬 Abrir", formatar_whatsapp_link(oferta), use_container_width=True)
+        with col_wa:
+            st.link_button("💬", formatar_whatsapp_link(oferta), use_container_width=True, help="Abrir no WhatsApp")
         with col_conf:
-            if st.button("✓ Enviado", key=f"wa_confirma_{oferta['id']}", use_container_width=True):
+            if st.button("✓", key=f"wa_confirma_{oferta['id']}", use_container_width=True, help="Marcar como enviado no WhatsApp"):
                 storage.marcar_enviado(oferta["id"], "whatsapp")
                 st.rerun()
+        with col_grp:
+            if grupos:
+                if st.button("📲", key=f"grupo_{oferta['id']}", use_container_width=True, help="Enviar aos grupos"):
+                    texto = whatsapp_client.formatar_mensagem(oferta)
+                    sucesso_algum = any(
+                        whatsapp_client.enviar_mensagem(grupo["jid"], texto) for grupo in grupos
+                    )
+                    if sucesso_algum:
+                        storage.marcar_enviado(oferta["id"], "whatsapp_grupo")
+                        st.rerun()
+                    else:
+                        st.error("Falha — confira '📲 Grupos'.")
+        with col_edit:
+            if st.button("✏️", key=f"edit_{oferta['id']}", use_container_width=True, help="Editar"):
+                st.session_state["editando_id"] = oferta["id"]
+                st.rerun()
+        with col_del:
+            if st.button("🗑️", key=f"del_{oferta['id']}", use_container_width=True, help="Remover do repositório"):
+                storage.remover_oferta(oferta["id"])
+                st.rerun()
 
-        if grupos:
-            if st.button("📲 Enviar aos grupos", key=f"grupo_{oferta['id']}", use_container_width=True):
-                texto = whatsapp_client.formatar_mensagem(oferta)
-                sucesso_algum = any(
-                    whatsapp_client.enviar_mensagem(grupo["jid"], texto) for grupo in grupos
-                )
-                if sucesso_algum:
-                    storage.marcar_enviado(oferta["id"], "whatsapp_grupo")
-                    st.success("Enviado aos grupos.")
-                    st.rerun()
-                else:
-                    st.error("Falha ao enviar — confira a conexão em '📲 Grupos'.")
 
-
-def render_offer_grid(ofertas: list[dict], colunas: int = 3):
+def render_offer_list(ofertas: list[dict], cfg: dict):
     grupos = storage.grupos_ativos()
-    for inicio in range(0, len(ofertas), colunas):
-        pedaco = ofertas[inicio:inicio + colunas]
-        cols = st.columns(colunas)
-        for col, oferta in zip(cols, pedaco):
-            with col:
-                render_offer_card(oferta, grupos)
-
-
-def render_offer_grid_agrupado(ofertas: list[dict], colunas: int = 3):
-    por_nicho: dict[str, list[dict]] = {}
     for oferta in ofertas:
-        nicho = oferta.get("keyword") or "Outros"
-        por_nicho.setdefault(nicho, []).append(oferta)
+        render_offer_row(oferta, grupos, cfg)
 
-    for nicho, itens in por_nicho.items():
-        st.markdown(f'<div class="section-title">🏷️ {nicho} ({len(itens)})</div>', unsafe_allow_html=True)
-        render_offer_grid(itens, colunas)
-        st.write("")
+
+def adicionar_links_em_lote(links: list[str], nicho: str) -> int:
+    adicionadas = 0
+    for link in links:
+        try:
+            dados = scraper.extrair_dados_produto(link)
+        except Exception:
+            dados = {}
+        storage.registrar_oferta(
+            {
+                "id": id_manual(link),
+                "fonte": "Manual",
+                "keyword": nicho,
+                "nome": dados.get("nome") or nome_a_partir_do_link(link),
+                "preco": dados.get("preco") or 0.0,
+                "desconto_percent": 0,
+                "link_afiliado": link,
+                "imagem_url": dados.get("imagem_url") or "",
+            }
+        )
+        adicionadas += 1
+    return adicionadas
 
 
 def view_ofertas(cfg: dict):
@@ -203,12 +262,11 @@ def view_ofertas(cfg: dict):
     nao_enviados = storage.contagem_nao_enviados()
     enviados_hoje = storage.contagem_enviados_hoje()
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     col1.markdown(ui.stat_card("🔗", "Total de links", len(todas)), unsafe_allow_html=True)
     col2.markdown(ui.stat_card("📭", "Não enviados", nao_enviados), unsafe_allow_html=True)
     col3.markdown(ui.stat_card("🟢", "Disponíveis", len(disponiveis)), unsafe_allow_html=True)
-    col4.markdown(ui.stat_card("📉", "Desconto mínimo", f"{cfg['min_discount_percent']}%"), unsafe_allow_html=True)
-    col5.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
+    col4.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
 
     with st.expander("📊 Ver total de links por nicho"):
         for linha in storage.contagem_por_nicho():
@@ -225,7 +283,7 @@ def view_ofertas(cfg: dict):
     col_wg.markdown(ui.stat_card("📲", "Grupos WhatsApp", enviados_hoje["whatsapp_grupo"]), unsafe_allow_html=True)
 
     st.write("")
-    row = st.columns([1, 1, 1])
+    row = st.columns([1, 1])
     with row[0]:
         if st.button("🔎 Buscar ofertas agora", use_container_width=True):
             with st.spinner("Consultando Amazon e Shopee..."):
@@ -235,60 +293,62 @@ def view_ofertas(cfg: dict):
         if st.button("📨 Testar Telegram", use_container_width=True):
             ok = teste_telegram()
             st.success("Mensagem de teste enviada.") if ok else st.error("Falha no teste do Telegram.")
-    with row[2]:
-        mostrar_todas = st.toggle("Mostrar esgotados", value=True)
 
-    with st.expander("➕ Adicionar oferta manualmente (colar link)"):
+    with st.expander("➕ Adicionar link(s) — um ou vários, no mesmo nicho"):
         st.caption(
-            "Só o link e o preço são obrigatórios — nome, nicho e desconto são "
-            "preenchidos automaticamente (e podem ser ajustados aqui se quiser)."
+            "Cole um link ou vários (um por linha) e escolha o nicho — vale pro "
+            "lote inteiro. Nome, preço e imagem são buscados automaticamente da "
+            "página; quando o site não permite, ficam em branco e dá pra corrigir "
+            "excluindo e recadastrando."
         )
         with st.form("form_manual", clear_on_submit=True):
-            link = st.text_input("Link do produto (afiliado) *")
-            c1, c2 = st.columns(2)
-            preco = c1.number_input("Preço (R$) *", min_value=0.0, step=0.01)
-            desconto = c2.number_input(
-                "Desconto (%)", min_value=0, max_value=100, step=1, value=cfg["min_discount_percent"]
-            )
-            with st.expander("Ajustar nome/nicho/imagem (opcional)"):
-                nome_manual = st.text_input("Nome do produto (deixe em branco para detectar do link)")
-                nicho_manual = st.selectbox("Nicho", options=["(detectar automaticamente)"] + cfg["keywords"])
-                imagem_url = st.text_input("URL da imagem")
-                fonte = st.text_input("Loja/fonte", value="Manual")
+            links_texto = st.text_area("Link(s) do produto (um por linha) *", height=100)
+            nicho_lote = st.selectbox("Nicho (aplicado a todos os links deste lote) *", options=cfg["nichos"] or ["geral"])
             if st.form_submit_button("Adicionar ao repositório"):
-                if link and preco:
-                    storage.registrar_oferta(
-                        {
-                            "id": id_manual(link),
-                            "fonte": fonte or "Manual",
-                            "keyword": nicho_manual
-                            if nicho_manual != "(detectar automaticamente)"
-                            else detectar_nicho(link, cfg["keywords"]),
-                            "nome": nome_manual or nome_a_partir_do_link(link),
-                            "preco": preco,
-                            "desconto_percent": int(desconto),
-                            "link_afiliado": link,
-                            "imagem_url": imagem_url,
-                        }
-                    )
-                    st.success("Oferta adicionada. Já aparece na lista e na vitrine pública.")
-                    st.rerun()
+                links = [linha.strip() for linha in links_texto.split("\n") if linha.strip()]
+                if not links:
+                    st.warning("Cole ao menos um link.")
                 else:
-                    st.warning("Preencha ao menos o link e o preço.")
+                    with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
+                        adicionadas = adicionar_links_em_lote(links, nicho_lote)
+                    st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
+                    st.rerun()
+
+    st.markdown('<div class="section-title">Ofertas no repositório</div>', unsafe_allow_html=True)
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
+    with col_f1:
+        nicho_filtro = st.selectbox("Filtrar por nicho", options=["Todos"] + cfg["nichos"])
+    with col_f2:
+        mostrar_todas = st.toggle("Mostrar esgotados", value=True)
+    with col_f3:
+        busca_texto = st.text_input("Buscar por nome")
 
     ofertas = todas if mostrar_todas else disponiveis
+    if nicho_filtro != "Todos":
+        ofertas = [o for o in ofertas if o.get("keyword") == nicho_filtro]
+    if busca_texto:
+        termo = busca_texto.strip().lower()
+        ofertas = [o for o in ofertas if termo in (o.get("nome") or "").lower()]
+
     if ofertas:
-        st.markdown(f'<div class="section-title">Ofertas no repositório: {len(ofertas)}</div>', unsafe_allow_html=True)
-        render_offer_grid_agrupado(ofertas)
+        st.caption(f"{len(ofertas)} oferta(s)")
+        render_offer_list(ofertas, cfg)
     else:
-        st.info("Nenhuma oferta no repositório ainda. Clique em 'Buscar ofertas agora' ou adicione uma manualmente.")
+        st.info("Nenhuma oferta encontrada com esses filtros.")
 
 
 def view_configuracoes(cfg: dict):
     st.markdown('<div class="section-title">Filtros e busca</div>', unsafe_allow_html=True)
     with st.form("form_config"):
         keywords_texto = st.text_area(
-            "Palavras-chave (uma por linha)", value="\n".join(cfg["keywords"]), height=160
+            "Palavras-chave de busca (uma por linha) — usadas na busca automática Shopee/Amazon",
+            value="\n".join(cfg["keywords"]),
+            height=120,
+        )
+        nichos_texto = st.text_area(
+            "Nichos (uma por linha) — usados pra categorizar ofertas na vitrine e no cadastro manual",
+            value="\n".join(cfg["nichos"]),
+            height=120,
         )
         c1, c2 = st.columns(2)
         min_discount = c1.number_input(
@@ -305,6 +365,7 @@ def view_configuracoes(cfg: dict):
         if st.form_submit_button("💾 Salvar configurações"):
             novas = {
                 "keywords": [linha.strip() for linha in keywords_texto.split("\n") if linha.strip()],
+                "nichos": [linha.strip() for linha in nichos_texto.split("\n") if linha.strip()],
                 "min_discount_percent": int(min_discount),
                 "min_price": float(preco_min),
                 "min_price_aplica": not aplica_preco_min,
@@ -519,6 +580,9 @@ def view_grupos():
             st.rerun()
 
 
+PAGINAS = ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos", "⬇️ Vídeo"]
+
+
 def main():
     st.set_page_config(page_title="Painel Vendedor1", page_icon="🛒", layout="wide")
     if not checar_senha():
@@ -527,14 +591,24 @@ def main():
     ui.inject_css()
     ui.hero("🛒", "Painel Vendedor1", "Repositório de ofertas, configurações e linktree.")
 
-    with st.sidebar:
-        pagina = st.radio(
-            "Navegação",
-            ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos", "⬇️ Vídeo"],
-            index=0,
-        )
+    if "pagina_atual" not in st.session_state:
+        st.session_state["pagina_atual"] = PAGINAS[0]
 
+    cols = st.columns(len(PAGINAS))
+    for col, nome_pagina in zip(cols, PAGINAS):
+        ativo = st.session_state["pagina_atual"] == nome_pagina
+        if col.button(
+            nome_pagina,
+            use_container_width=True,
+            type="primary" if ativo else "secondary",
+            key=f"nav_{nome_pagina}",
+        ):
+            st.session_state["pagina_atual"] = nome_pagina
+            st.rerun()
+
+    st.write("")
     cfg = settings.carregar_configuracoes()
+    pagina = st.session_state["pagina_atual"]
 
     if pagina == "📋 Ofertas":
         view_ofertas(cfg)

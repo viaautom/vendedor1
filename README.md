@@ -71,19 +71,32 @@ X horas, sem precisar do `--loop`:
 
 ## 3.1 Painel administrativo
 
-Ao abrir o painel (`dashboard.py`), a tela inicial é sempre **"📋 Ofertas"**:
-lista o repositório inteiro de ofertas já encontradas (link, nome, preço,
-nicho, data/hora da última busca), sem repetir produto, com indicadores de
-Telegram/WhatsApp (cinza = não enviado, colorido = já enviado por aquele
-canal). Ali também dá pra colar manualmente o link de um produto (útil
-enquanto a Shopee/Amazon ainda não estão conectadas) — ele entra no mesmo
-repositório e passa a aparecer na vitrine pública e nos botões de envio,
-igual a uma oferta encontrada automaticamente.
+A navegação fica em botões no topo da tela (não mais na barra lateral). Ao
+abrir o painel (`dashboard.py`), a tela inicial é sempre **"📋 Ofertas"**:
+lista o repositório inteiro de ofertas já encontradas, uma por linha (nome,
+preço, desconto, nicho, data/hora, status de envio por canal — cinza =
+não enviado, colorido = já enviado), com filtro por nicho, por "mostrar
+esgotados" e busca por nome. Cada linha tem botões de enviar
+(Telegram/WhatsApp/grupo), **✏️ editar** e **🗑️ excluir**.
 
-As outras telas do painel (barra lateral):
-- **⚙️ Configurações**: keywords, desconto mínimo, preço mínimo (com opção
-  "não se aplica"), preço máximo e intervalo de busca do worker — tudo
-  editável ali, sem precisar mexer em `.env` nem redeployar.
+Pra adicionar ofertas manualmente (útil enquanto Shopee/Amazon não estão
+conectadas), cole um ou vários links (um por linha) no expansor
+"➕ Adicionar link(s)" e escolha **um nicho pro lote inteiro**. Nome, preço
+e imagem são buscados automaticamente da página do produto (via meta tags/
+JSON-LD que a maioria das lojas publica) — funciona bem em lojas menores e
+no Mercado Livre, mas sites que bloqueiam bots (Amazon, Magazine Luiza,
+etc.) costumam falhar; nesse caso o produto ainda é adicionado, só que sem
+os dados, pra você completar com o botão "✏️ editar".
+
+Os **nichos** (categorias) são uma lista própria, separada das palavras-chave
+de busca — edite em **⚙️ Configurações**. Elas é que aparecem no seletor do
+cadastro manual e nos filtros/seções da vitrine pública.
+
+As outras telas do painel:
+- **⚙️ Configurações**: keywords de busca (Shopee/Amazon), nichos, desconto
+  mínimo, preço mínimo (com opção "não se aplica"), preço máximo e
+  intervalo de busca do worker — tudo editável ali, sem precisar mexer em
+  `.env` nem redeployar.
 - **🔗 Linktree**: título, subtítulo, cor primária/fundo, logo (upload de
   imagem ou emoji) e a lista de links — o que você salva ali aparece
   imediatamente na página pública da linktree.

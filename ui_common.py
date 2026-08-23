@@ -120,6 +120,17 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
         background-color: rgba(255,255,255,0.04);
         margin-bottom: 0.6rem;
     }}
+    .offer-thumb {{
+        width: 64px;
+        height: 64px;
+        border-radius: 10px;
+        background-size: cover;
+        background-position: center;
+        background-color: rgba(255,255,255,0.04);
+        border: 1px solid var(--card-border);
+    }}
+    .offer-row-title {{ font-weight: 600; }}
+    .offer-row-meta {{ color: var(--text-muted); font-size: 0.8rem; font-family: var(--mono); }}
     .offer-badge {{
         display: inline-block;
         background: rgba(52, 211, 153, 0.16);
@@ -273,6 +284,13 @@ def banner_html(banner: dict, altura: int = 180) -> str:
     if link:
         return f'<a href="{link}" target="_blank" rel="noopener">{conteudo}</a>'
     return conteudo
+
+
+def thumb_html(imagem_url: str) -> str:
+    imagem = safe_url(imagem_url)
+    if not imagem:
+        return '<div class="offer-thumb"></div>'
+    return f'<div class="offer-thumb" style="background-image:url(\'{imagem}\')"></div>'
 
 
 def logo_path() -> str:

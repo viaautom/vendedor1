@@ -215,6 +215,32 @@ def listar_ofertas(somente_disponiveis: bool = False) -> list[dict]:
     return [dict(row) for row in linhas]
 
 
+def remover_oferta(oferta_id: str):
+    conn = _connect()
+    conn.execute("DELETE FROM ofertas_encontradas WHERE id = ?", (oferta_id,))
+    conn.commit()
+    conn.close()
+
+
+_COLUNAS_EDITAVEIS = {"nome", "preco", "desconto_percent", "keyword", "imagem_url", "link_afiliado"}
+
+
+def atualizar_oferta(oferta_id: str, campos: dict):
+    """Atualiza manualmente um subconjunto de colunas (edição pelo painel).
+    Ignora chaves fora de _COLUNAS_EDITAVEIS por segurança."""
+    campos = {chave: valor for chave, valor in campos.items() if chave in _COLUNAS_EDITAVEIS}
+    if not campos:
+        return
+    atribuicoes = ", ".join(f"{chave} = ?" for chave in campos)
+    conn = _connect()
+    conn.execute(
+        f"UPDATE ofertas_encontradas SET {atribuicoes} WHERE id = ?",
+        (*campos.values(), oferta_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 _COLUNAS_ENVIO = {
     "telegram": "enviado_telegram",
     "whatsapp": "enviado_whatsapp",

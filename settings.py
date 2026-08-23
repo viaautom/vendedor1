@@ -6,7 +6,7 @@ Diferente de config.py, que guarda credenciais/infra (só via .env).
 import config
 import storage
 
-_CHAVES_LISTA = {"keywords"}
+_CHAVES_LISTA = {"keywords", "nichos"}
 _CHAVES_BOOL = {"min_price_aplica"}
 _CHAVES_INT = {"min_discount_percent", "check_interval_hours"}
 _CHAVES_FLOAT = {"min_price", "max_price"}
@@ -15,6 +15,10 @@ _CHAVES_FLOAT = {"min_price", "max_price"}
 def _defaults() -> dict:
     return {
         "keywords": list(config.KEYWORDS),
+        # Nichos começam iguais às keywords de busca, mas são uma lista
+        # independente — servem pra categorizar ofertas (inclusive as
+        # adicionadas manualmente) e podem ser editados à parte.
+        "nichos": list(config.KEYWORDS),
         "min_discount_percent": config.MIN_DISCOUNT_PERCENT,
         "min_price": config.MIN_PRICE,
         "min_price_aplica": True,
@@ -27,9 +31,10 @@ def carregar_configuracoes() -> dict:
     cfg = _defaults()
     salvos = storage.obter_config_kv()
 
-    if "keywords" in salvos:
-        linhas = [linha.strip() for linha in salvos["keywords"].split("\n")]
-        cfg["keywords"] = [linha for linha in linhas if linha]
+    for chave in _CHAVES_LISTA:
+        if chave in salvos:
+            linhas = [linha.strip() for linha in salvos[chave].split("\n")]
+            cfg[chave] = [linha for linha in linhas if linha]
     for chave in _CHAVES_BOOL:
         if chave in salvos:
             cfg[chave] = salvos[chave] == "1"
@@ -46,6 +51,7 @@ def carregar_configuracoes() -> dict:
 def salvar_configuracoes(cfg: dict):
     valores = {
         "keywords": "\n".join(cfg["keywords"]),
+        "nichos": "\n".join(cfg["nichos"]),
         "min_discount_percent": str(int(cfg["min_discount_percent"])),
         "min_price": str(float(cfg["min_price"])),
         "min_price_aplica": "1" if cfg["min_price_aplica"] else "0",
