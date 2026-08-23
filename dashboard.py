@@ -19,6 +19,7 @@ from clients import amazon_client, shopee_client
 import settings
 import storage
 import telegram_poster
+import video_tools
 import whatsapp_client
 import ui_common as ui
 
@@ -434,6 +435,43 @@ def view_vitrine():
             st.rerun()
 
 
+def view_video():
+    st.markdown('<div class="section-title">Baixar vídeo por link</div>', unsafe_allow_html=True)
+    st.caption(
+        "Cole o link de um vídeo público e baixe o arquivo pra usar nas suas "
+        "divulgações. Baixe só conteúdo que você tem direito de usar (seu "
+        "próprio, licenciado, ou de sites/vídeos que permitem download)."
+    )
+    url = st.text_input("Link do vídeo")
+    if st.button("⬇️ Baixar"):
+        if not url:
+            st.warning("Cole um link primeiro.")
+        else:
+            with st.spinner("Baixando... pode levar alguns segundos, dependendo do tamanho."):
+                try:
+                    dados, nome = video_tools.baixar_video(url)
+                    st.session_state["video_baixado"] = (dados, nome)
+                    st.success(f"Pronto: {nome} ({len(dados) / 1024 / 1024:.1f} MB)")
+                except Exception as exc:
+                    st.error(f"Falha ao baixar: {exc}")
+
+    if "video_baixado" in st.session_state:
+        dados, nome = st.session_state["video_baixado"]
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.download_button(
+                "💾 Salvar vídeo no computador",
+                data=dados,
+                file_name=nome,
+                mime=video_tools.mime_de(nome),
+                use_container_width=True,
+            )
+        with col2:
+            if st.button("🗑️ Limpar", use_container_width=True):
+                del st.session_state["video_baixado"]
+                st.rerun()
+
+
 def view_grupos():
     st_status = whatsapp_client.status()
     conectado = st_status.get("connected", False)
@@ -492,7 +530,7 @@ def main():
     with st.sidebar:
         pagina = st.radio(
             "Navegação",
-            ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos"],
+            ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos", "⬇️ Vídeo"],
             index=0,
         )
 
@@ -506,8 +544,10 @@ def main():
         view_linktree()
     elif pagina == "🛍️ Vitrine":
         view_vitrine()
-    else:
+    elif pagina == "📲 Grupos":
         view_grupos()
+    else:
+        view_video()
 
 
 if __name__ == "__main__":

@@ -80,15 +80,20 @@ enquanto a Shopee/Amazon ainda não estão conectadas) — ele entra no mesmo
 repositório e passa a aparecer na vitrine pública e nos botões de envio,
 igual a uma oferta encontrada automaticamente.
 
-As outras duas telas do painel (barra lateral):
+As outras telas do painel (barra lateral):
 - **⚙️ Configurações**: keywords, desconto mínimo, preço mínimo (com opção
   "não se aplica"), preço máximo e intervalo de busca do worker — tudo
   editável ali, sem precisar mexer em `.env` nem redeployar.
 - **🔗 Linktree**: título, subtítulo, cor primária/fundo, logo (upload de
   imagem ou emoji) e a lista de links — o que você salva ali aparece
   imediatamente na página pública da linktree.
+- **🛍️ Vitrine**: título/subtítulo de `/site` e banners promocionais
+  (imagem + link) exibidos no topo da vitrine pública.
 - **📲 Grupos**: pareamento e seleção dos grupos de WhatsApp que recebem as
   ofertas automaticamente (veja seção 6).
+- **⬇️ Vídeo**: cola um link de vídeo público e baixa o arquivo (via
+  `yt-dlp`) pra usar nas divulgações — baixe só conteúdo que você tem
+  direito de usar.
 
 ## 4. Deploy
 
