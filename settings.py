@@ -15,10 +15,10 @@ _CHAVES_FLOAT = {"min_price", "max_price"}
 def _defaults() -> dict:
     return {
         "keywords": list(config.KEYWORDS),
-        # Nichos começam iguais às keywords de busca, mas são uma lista
-        # independente — servem pra categorizar ofertas (inclusive as
-        # adicionadas manualmente) e podem ser editados à parte.
-        "nichos": list(config.KEYWORDS),
+        # Nichos são uma lista independente das keywords de busca — o
+        # usuário cadastra explicitamente em Configurações antes de
+        # categorizar produtos com eles. Começa vazia de propósito.
+        "nichos": [],
         "min_discount_percent": config.MIN_DISCOUNT_PERCENT,
         "min_price": config.MIN_PRICE,
         "min_price_aplica": True,

@@ -295,24 +295,30 @@ def view_ofertas(cfg: dict):
             st.success("Mensagem de teste enviada.") if ok else st.error("Falha no teste do Telegram.")
 
     with st.expander("➕ Adicionar link(s) — um ou vários, no mesmo nicho"):
-        st.caption(
-            "Cole um link ou vários (um por linha) e escolha o nicho — vale pro "
-            "lote inteiro. Nome, preço e imagem são buscados automaticamente da "
-            "página; quando o site não permite, ficam em branco e dá pra corrigir "
-            "excluindo e recadastrando."
-        )
-        with st.form("form_manual", clear_on_submit=True):
-            links_texto = st.text_area("Link(s) do produto (um por linha) *", height=100)
-            nicho_lote = st.selectbox("Nicho (aplicado a todos os links deste lote) *", options=cfg["nichos"] or ["geral"])
-            if st.form_submit_button("Adicionar ao repositório"):
-                links = [linha.strip() for linha in links_texto.split("\n") if linha.strip()]
-                if not links:
-                    st.warning("Cole ao menos um link.")
-                else:
-                    with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
-                        adicionadas = adicionar_links_em_lote(links, nicho_lote)
-                    st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
-                    st.rerun()
+        if not cfg["nichos"]:
+            st.warning("Cadastre pelo menos um nicho antes de adicionar produtos.")
+            if st.button("⚙️ Ir para Configurações e cadastrar um nicho"):
+                st.session_state["pagina_atual"] = "⚙️ Configurações"
+                st.rerun()
+        else:
+            st.caption(
+                "Cole um link ou vários (um por linha) e escolha o nicho — vale pro "
+                "lote inteiro. Nome, preço e imagem são buscados automaticamente da "
+                "página; quando o site não permite, ficam em branco e dá pra corrigir "
+                "excluindo e recadastrando."
+            )
+            with st.form("form_manual", clear_on_submit=True):
+                links_texto = st.text_area("Link(s) do produto (um por linha) *", height=100)
+                nicho_lote = st.selectbox("Nicho (aplicado a todos os links deste lote) *", options=cfg["nichos"])
+                if st.form_submit_button("Adicionar ao repositório"):
+                    links = [linha.strip() for linha in links_texto.split("\n") if linha.strip()]
+                    if not links:
+                        st.warning("Cole ao menos um link.")
+                    else:
+                        with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
+                            adicionadas = adicionar_links_em_lote(links, nicho_lote)
+                        st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
+                        st.rerun()
 
     st.markdown('<div class="section-title">Ofertas no repositório</div>', unsafe_allow_html=True)
     col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
