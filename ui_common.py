@@ -150,7 +150,8 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
     .send-status .on {{ opacity: 1; filter: none; text-shadow: 0 0 8px currentColor; }}
 
     .link-card, .link-card *,
-    .product-card, .product-card * {{
+    .product-card, .product-card *,
+    .banner-card, .banner-card * {{
         text-decoration: none !important;
         color: inherit !important;
     }}
@@ -180,6 +181,24 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
     }}
     .product-card:hover .offer-title {{
         color: var(--accent) !important;
+    }}
+
+    .banner-card {{
+        display: block;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--card-border);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .banner-card:hover {{
+        transform: translateY(-3px);
+        box-shadow: 0 0 28px {accent}33;
+    }}
+    .banner-card img {{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
     }}
 
     .stButton > button, .stLinkButton > a {{
@@ -243,6 +262,17 @@ def oferta_card_inner_html(oferta: dict) -> str:
     partes.append(f'<div class="offer-price">R$ {float(oferta.get("preco", 0) or 0):.2f}</div>')
     partes.append(f'<div class="offer-store">{fonte}</div>')
     return "".join(partes)
+
+
+def banner_html(banner: dict, altura: int = 180) -> str:
+    imagem = safe_url(banner.get("imagem_url", ""))
+    link = safe_url(banner.get("link_url", ""))
+    if not imagem:
+        return ""
+    conteudo = f'<div class="banner-card" style="height:{altura}px"><img src="{imagem}" alt="banner"></div>'
+    if link:
+        return f'<a href="{link}" target="_blank" rel="noopener">{conteudo}</a>'
+    return conteudo
 
 
 def logo_path() -> str:

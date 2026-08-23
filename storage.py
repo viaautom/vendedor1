@@ -68,6 +68,17 @@ def _connect():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS loja_banners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            imagem_url TEXT,
+            link_url TEXT,
+            ordem INTEGER DEFAULT 0,
+            ativo INTEGER DEFAULT 1
+        )
+        """
+    )
     try:
         conn.execute("ALTER TABLE ofertas_encontradas ADD COLUMN enviado_whatsapp_grupo INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
@@ -331,6 +342,43 @@ def salvar_links(links: list[dict]):
                 1 if link.get("ativo", True) else 0,
             )
             for idx, link in enumerate(links)
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+
+# --- Vitrine (loja.py) ---------------------------------------------------
+
+def listar_banners(somente_ativos: bool = False) -> list[dict]:
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    query = "SELECT * FROM loja_banners"
+    if somente_ativos:
+        query += " WHERE ativo = 1"
+    query += " ORDER BY ordem ASC, id ASC"
+    linhas = conn.execute(query).fetchall()
+    conn.close()
+    return [dict(row) for row in linhas]
+
+
+def salvar_banners(banners: list[dict]):
+    """Substitui a lista inteira de banners (mesmo padrão de salvar_links)."""
+    conn = _connect()
+    conn.execute("DELETE FROM loja_banners")
+    conn.executemany(
+        """
+        INSERT INTO loja_banners (imagem_url, link_url, ordem, ativo)
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            (
+                banner.get("imagem_url", ""),
+                banner.get("link_url", ""),
+                idx,
+                1 if banner.get("ativo", True) else 0,
+            )
+            for idx, banner in enumerate(banners)
         ],
     )
     conn.commit()

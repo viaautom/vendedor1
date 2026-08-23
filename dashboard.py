@@ -382,6 +382,58 @@ def view_linktree():
             st.rerun()
 
 
+def view_vitrine():
+    kv = storage.obter_config_kv()
+
+    st.markdown('<div class="section-title">Identidade da vitrine</div>', unsafe_allow_html=True)
+    with st.form("form_vitrine_identidade"):
+        titulo = st.text_input("Título", value=kv.get("loja_titulo", "Vitrine Vendedor1"))
+        subtitulo = st.text_input(
+            "Subtítulo",
+            value=kv.get(
+                "loja_subtitulo",
+                "As melhores ofertas de fitness & bem-estar, atualizadas automaticamente.",
+            ),
+        )
+        if st.form_submit_button("💾 Salvar identidade"):
+            storage.definir_config_kv({"loja_titulo": titulo, "loja_subtitulo": subtitulo})
+            st.success("Identidade da vitrine salva.")
+            st.rerun()
+
+    st.markdown('<div class="section-title">Banners (topo da vitrine)</div>', unsafe_allow_html=True)
+    st.caption("Aparecem no topo de /site, antes das ofertas. Cole a URL de uma imagem já hospedada.")
+
+    banners_salvos = storage.listar_banners()
+    if "vitrine_banners_edit" not in st.session_state:
+        st.session_state["vitrine_banners_edit"] = banners_salvos or [
+            {"imagem_url": "", "link_url": "", "ativo": True}
+        ]
+
+    with st.form("form_vitrine_banners"):
+        editados = []
+        for idx, banner in enumerate(st.session_state["vitrine_banners_edit"]):
+            c1, c2, c3 = st.columns([4, 4, 1])
+            imagem_url = c1.text_input("URL da imagem", value=banner.get("imagem_url", ""), key=f"bn_img_{idx}")
+            link_url = c2.text_input("Link ao clicar", value=banner.get("link_url", ""), key=f"bn_link_{idx}")
+            ativo = c3.checkbox("Ativo", value=bool(banner.get("ativo", True)), key=f"bn_ativo_{idx}")
+            editados.append({"imagem_url": imagem_url, "link_url": link_url, "ativo": ativo})
+
+        col_add, col_save = st.columns(2)
+        adicionar = col_add.form_submit_button("➕ Adicionar banner")
+        salvar = col_save.form_submit_button("💾 Salvar banners")
+
+        if adicionar:
+            editados.append({"imagem_url": "", "link_url": "", "ativo": True})
+            st.session_state["vitrine_banners_edit"] = editados
+            st.rerun()
+        if salvar:
+            validos = [banner for banner in editados if banner["imagem_url"]]
+            storage.salvar_banners(validos)
+            st.session_state["vitrine_banners_edit"] = validos or editados
+            st.success("Banners salvos.")
+            st.rerun()
+
+
 def view_grupos():
     st_status = whatsapp_client.status()
     conectado = st_status.get("connected", False)
@@ -439,7 +491,9 @@ def main():
 
     with st.sidebar:
         pagina = st.radio(
-            "Navegação", ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "📲 Grupos"], index=0
+            "Navegação",
+            ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos"],
+            index=0,
         )
 
     cfg = settings.carregar_configuracoes()
@@ -450,6 +504,8 @@ def main():
         view_configuracoes(cfg)
     elif pagina == "🔗 Linktree":
         view_linktree()
+    elif pagina == "🛍️ Vitrine":
+        view_vitrine()
     else:
         view_grupos()
 
