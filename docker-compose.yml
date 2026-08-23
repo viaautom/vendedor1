@@ -1,8 +1,29 @@
 services:
-  web:
-    image: nginx:alpine
+  linktree:
+    build: .
+    command: >
+      streamlit run linktree.py
+      --server.address=0.0.0.0
+      --server.port=8503
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/ofertas.db
     volumes:
-      - ./public/linktree:/usr/share/nginx/html:ro
+      - ofertas_data:/app/data
+    restart: unless-stopped
+
+  loja:
+    build: .
+    command: >
+      streamlit run loja.py
+      --server.address=0.0.0.0
+      --server.port=8502
+      --server.baseUrlPath=site
+    env_file: .env
+    environment:
+      DATABASE_PATH: /app/data/ofertas.db
+    volumes:
+      - ofertas_data:/app/data
     restart: unless-stopped
 
   dashboard:
@@ -28,5 +49,17 @@ services:
       - ofertas_data:/app/data
     restart: unless-stopped
 
+  whatsapp:
+    build: ./whatsapp-service
+    env_file: .env
+    environment:
+      AUTH_DIR: /app/auth_info
+    volumes:
+      - whatsapp_auth:/app/auth_info
+    restart: unless-stopped
+    # Sem "ports": só acessível pelos outros serviços na rede interna do
+    # compose (http://whatsapp:3000), nunca exposto publicamente.
+
 volumes:
   ofertas_data:
+  whatsapp_auth:

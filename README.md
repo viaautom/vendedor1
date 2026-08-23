@@ -1,8 +1,11 @@
 # Buscador de Ofertas — Fitness & Bem-Estar
 
-Script que busca ofertas na Shopee e na Amazon para um conjunto de
-palavras-chave, filtra pelo desconto mínimo configurado e posta
-automaticamente as novas ofertas no seu canal do Telegram.
+Sistema que busca ofertas na Shopee e na Amazon (ou aceita adição manual)
+para um conjunto de palavras-chave, mantém um repositório persistente de
+ofertas, posta as novas automaticamente no Telegram, e expõe três telas:
+um painel administrativo, uma vitrine pública das ofertas disponíveis e
+uma página de links (linktree) — tudo editável pelo próprio painel, sem
+precisar mexer em código.
 
 ## 1. Instalação
 
@@ -49,9 +52,15 @@ Rodar continuamente, verificando a cada `CHECK_INTERVAL_HOURS`:
 python main.py --loop
 ```
 
-Abrir o painel (Streamlit):
+Abrir o painel administrativo (Streamlit):
 ```bash
 streamlit run dashboard.py
+```
+
+Abrir a vitrine pública (ofertas disponíveis) e a linktree:
+```bash
+streamlit run loja.py --server.port 8502
+streamlit run linktree.py --server.port 8503
 ```
 
 Alternativa: usar `cron` (Linux/Mac) para rodar `python main.py` a cada
@@ -60,28 +69,53 @@ X horas, sem precisar do `--loop`:
 0 */6 * * * cd /caminho/do/projeto && venv/bin/python main.py >> log.txt 2>&1
 ```
 
-## 3.1 Página pública (linktree)
+## 3.1 Painel administrativo
 
-Edite os links reais (Telegram, WhatsApp, Instagram, TikTok, site) em
-[public/linktree/index.html](public/linktree/index.html) antes de publicar —
-é um HTML estático simples, sem build.
+Ao abrir o painel (`dashboard.py`), a tela inicial é sempre **"📋 Ofertas"**:
+lista o repositório inteiro de ofertas já encontradas (link, nome, preço,
+nicho, data/hora da última busca), sem repetir produto, com indicadores de
+Telegram/WhatsApp (cinza = não enviado, colorido = já enviado por aquele
+canal). Ali também dá pra colar manualmente o link de um produto (útil
+enquanto a Shopee/Amazon ainda não estão conectadas) — ele entra no mesmo
+repositório e passa a aparecer na vitrine pública e nos botões de envio,
+igual a uma oferta encontrada automaticamente.
+
+As outras duas telas do painel (barra lateral):
+- **⚙️ Configurações**: keywords, desconto mínimo, preço mínimo (com opção
+  "não se aplica"), preço máximo e intervalo de busca do worker — tudo
+  editável ali, sem precisar mexer em `.env` nem redeployar.
+- **🔗 Linktree**: título, subtítulo, cor primária/fundo, logo (upload de
+  imagem ou emoji) e a lista de links — o que você salva ali aparece
+  imediatamente na página pública da linktree.
+- **📲 Grupos**: pareamento e seleção dos grupos de WhatsApp que recebem as
+  ofertas automaticamente (veja seção 6).
 
 ## 4. Deploy
 
-O projeto vem com `Dockerfile` e `docker-compose.yml`, definindo três
-serviços a partir da mesma imagem (exceto `web`):
+O projeto vem com `Dockerfile` (Python) + `whatsapp-service/Dockerfile`
+(Node.js) e `docker-compose.yml`, definindo cinco serviços:
 
-- `web`: Nginx servindo a página pública (linktree) em `public/linktree/`.
-- `dashboard`: o painel administrativo (Streamlit), na porta 8501 — protegido
-  por senha (`ADMIN_PASSWORD` no `.env`).
+- `linktree`: página pública de links (porta 8503).
+- `loja`: vitrine pública das ofertas disponíveis, agrupadas por nicho
+  (porta 8502, roda com `--server.baseUrlPath=site`).
+- `dashboard`: o painel administrativo, na porta 8501 — protegido por senha
+  (`ADMIN_PASSWORD` no `.env`).
 - `worker`: roda `python main.py --loop` continuamente, buscando e postando
-  ofertas novas no Telegram.
+  ofertas novas no Telegram e nos grupos de WhatsApp configurados (relê as
+  configurações do painel a cada ciclo).
+- `whatsapp`: serviço Node.js (Baileys) que mantém a sessão do WhatsApp e
+  envia as mensagens pros grupos — **sem domínio público**, só acessível
+  pelos outros serviços na rede interna do compose.
 
-`dashboard` e `worker` compartilham um volume (`ofertas_data`) com o banco
-de deduplicação.
+`linktree`, `loja`, `dashboard` e `worker` compartilham um volume
+(`ofertas_data`) com o banco SQLite — o repositório único de ofertas,
+configurações e links da linktree. O `whatsapp` tem seu próprio volume
+(`whatsapp_auth`) com a sessão pareada, separado do resto.
 
-**Sempre defina `ADMIN_PASSWORD` no `.env` antes de publicar** — sem ela o
-painel fica aberto para qualquer pessoa que tiver a URL.
+**Sempre defina `ADMIN_PASSWORD` e `WHATSAPP_SERVICE_TOKEN` no `.env` antes
+de publicar** — sem o primeiro, o painel fica aberto pra qualquer um; sem
+o segundo, o serviço do WhatsApp fica sem proteção mesmo estando na rede
+interna.
 
 ### 4.1 Deploy com Dokploy (recomendado)
 
@@ -96,19 +130,24 @@ O projeto está preparado para deploy via [Dokploy](https://dokploy.com)
 4. Em **Environment**, cole o conteúdo do seu `.env` (as mesmas variáveis
    de `.env.example`, com os valores reais — não esqueça o
    `ADMIN_PASSWORD`).
-5. Deploy. O Dokploy vai buildar a imagem e subir os três serviços
-   (`web`, `dashboard`, `worker`).
-6. Configure os **Domains** (um por serviço exposto — `worker` não precisa
-   de domínio, ele não serve HTTP):
-   - `web` → porta `80` → domínio da linktree pública.
-   - `dashboard` → porta `8501` → domínio/subdomínio do painel.
+5. Deploy. O Dokploy vai buildar as imagens e subir os cinco serviços
+   (`linktree`, `loja`, `dashboard`, `worker`, `whatsapp`) — o `whatsapp`
+   não precisa de domínio, é só interno.
+6. Configure os **Domains** (`worker` não precisa de domínio, não serve HTTP):
+   - `linktree` → porta `8503` → domínio raiz, path `/`.
+   - `loja` → porta `8502` → **mesmo domínio raiz**, path `/site` (o
+     Dokploy permite mais de um domínio com o mesmo Host e Path diferente,
+     cada um apontando pra um serviço).
+   - `dashboard` → porta `8501` → domínio/subdomínio separado do painel.
    - Ative HTTPS (Let's Encrypt) em cada domínio.
 
    Enquanto você não tem domínio próprio, dá pra usar o
    [sslip.io](https://sslip.io) (resolve `algo.SEU-IP.sslip.io` para o
-   próprio IP do servidor, sem precisar configurar DNS):
-   - Linktree: `vendedor1.SEU-IP.sslip.io`
-   - Painel: `admin.vendedor1.SEU-IP.sslip.io`
+   próprio IP do servidor, sem precisar configurar DNS). Exemplo real deste
+   projeto:
+   - Linktree: `https://vendedor1.SEU-IP.sslip.io/`
+   - Vitrine: `https://vendedor1.SEU-IP.sslip.io/site`
+   - Painel: `https://admin.vendedor1.SEU-IP.sslip.io`
 
    Quando tiver um domínio de verdade, é só trocar o domínio em cada
    serviço no Dokploy e apontar o DNS — sem precisar mexer no código.
@@ -139,35 +178,79 @@ deve passar sempre pelo Nginx (com HTTPS). Libere só as portas 80 e 443
 
 ## 5. Ajustando o nicho
 
-Edite a lista `KEYWORDS` em `config.py` para trocar os termos buscados,
-e `MIN_DISCOUNT_PERCENT` / `MIN_PRICE` / `MAX_PRICE` para ajustar os
-filtros de oferta.
+Keywords e filtros de preço/desconto agora são editados direto na aba
+**⚙️ Configurações** do painel (veja seção 3.1) — não precisa mais editar
+`config.py` nem redeployar. `config.py` só define os valores iniciais
+(usados na primeira vez, antes de qualquer configuração ser salva).
 
-## 6. Sobre postar no WhatsApp
+## 6. Postando automaticamente em grupos do WhatsApp
 
-Este MVP posta apenas no Telegram, que tem API de bot aberta e
-gratuita. Para postar automaticamente no WhatsApp de forma oficial e
-sem risco de banimento, é necessário usar a **WhatsApp Business
-Platform (Cloud API)**, que exige cadastro de negócio verificado e
-tem custo por mensagem em alguns casos. Não recomendamos automatizar
-postagem em grupos comuns do WhatsApp, pois isso não é suportado
-oficialmente pela plataforma.
+O envio automático para grupos usa o **[Baileys](https://github.com/WhiskeySockets/Baileys)**,
+uma biblioteca que implementa o protocolo do WhatsApp Web (não é a API
+oficial da Meta/WhatsApp Business Platform — que exige cadastro de negócio
+verificado e tem custo por mensagem). O Baileys simula um cliente web
+normal, então usa um número de WhatsApp de verdade.
+
+### 6.1 Pareamento (só uma vez)
+
+1. Suba os containers (`docker compose up -d --build` ou via Dokploy).
+2. Abra o painel → **📲 Grupos**. Vai aparecer um QR code (ele demora
+   alguns segundos pra ser gerado — clique em "🔄 Atualizar status" se
+   ainda não aparecer).
+3. No **número dedicado ao canal** (recomendado: não usar um número
+   pessoal), abra WhatsApp → **Aparelhos conectados** → **Conectar um
+   aparelho** → escaneie o QR.
+4. Depois de conectado, a sessão fica salva no volume `whatsapp_auth` —
+   não precisa escanear de novo, a não ser que desconecte pelo celular ou
+   fique muito tempo offline.
+5. Ainda em **📲 Grupos**, com o status "conectado", marque quais grupos
+   (dentre os que esse número já participa) devem receber as ofertas
+   automaticamente e clique em **Salvar grupos**.
+
+### 6.2 Como funciona depois de pareado
+
+- O worker manda toda oferta nova pros grupos marcados como ativos, do
+  mesmo jeito que já faz com o Telegram.
+- No painel, cada oferta também tem um botão **"📲 Enviar aos grupos"**
+  pra reenviar manualmente.
+- O ícone 📲 no card fica cinza (não enviado) ou colorido (já enviado
+  àquela oferta).
+
+### 6.3 Cuidados (evitar banimento do número)
+
+- Use um número **dedicado**, não o principal de ninguém.
+- O número precisa **já estar dentro do grupo** antes de poder postar nele
+  — o sistema não entra/sai de grupos sozinho.
+- O `whatsapp-service` já espaça os envios automaticamente (alguns
+  segundos entre mensagens, mesmo mandando pra vários grupos de uma vez) —
+  não desative isso reduzindo `ENVIO_INTERVALO_MS` demais.
+- Evite trocar de grupo com muita frequência e evite volumes muito altos
+  num intervalo curto — ajuste `CHECK_INTERVAL_HOURS` (aba Configurações)
+  com folga.
 
 ## 7. Estrutura do projeto
 
 ```
 vendedor1/
-├── config.py              # configurações e variáveis de ambiente
-├── storage.py             # controle de deduplicação (SQLite)
+├── config.py              # credenciais/infra (só via .env — tokens, senha do admin)
+├── settings.py            # configurações de negócio editáveis (keywords, filtros, intervalo)
+├── storage.py             # repositório de ofertas, config, links e grupos (SQLite)
+├── ui_common.py           # CSS/design system e helpers de card compartilhados
 ├── telegram_poster.py     # formata e posta no Telegram
-├── main.py                # orquestrador / scheduler
+├── whatsapp_client.py     # cliente HTTP pro whatsapp-service (grupos)
+├── main.py                # worker / loop de busca
 ├── dashboard.py           # painel administrativo (Streamlit)
+├── loja.py                # vitrine pública das ofertas disponíveis (Streamlit)
+├── linktree.py            # página pública de links (Streamlit)
 ├── clients/
 │   ├── shopee_client.py   # busca ofertas na Shopee
 │   ├── amazon_client.py   # busca ofertas na Amazon
-│   └── mercadolivre_client.py  # busca ofertas no Mercado Livre
-├── public/linktree/       # página pública de links
-├── deploy/                # exemplo de configuração Nginx
+│   └── mercadolivre_client.py  # busca ofertas no Mercado Livre (não usado no fluxo ainda)
+├── whatsapp-service/      # microserviço Node.js (Baileys) — sessão + envio a grupos
+│   ├── index.js
+│   ├── package.json
+│   └── Dockerfile
+├── deploy/                # exemplo de configuração Nginx (deploy manual, sem Dokploy)
 ├── Dockerfile, docker-compose.yml, .dockerignore
 ├── requirements.txt
 └── .env.example

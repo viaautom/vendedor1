@@ -21,7 +21,8 @@ def _parse_price(value):
     return None
 
 
-def buscar_ofertas(keyword: str, limite: int = 10) -> list[dict]:
+def buscar_ofertas(keyword: str, limite: int = 10, min_discount_percent: int = None) -> list[dict]:
+    limite_desconto = MIN_DISCOUNT_PERCENT if min_discount_percent is None else min_discount_percent
     url = "https://api.mercadolibre.com/sites/MLB/search"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -42,7 +43,7 @@ def buscar_ofertas(keyword: str, limite: int = 10) -> list[dict]:
             continue
 
         desconto_percent = round((1 - (preco_atual / preco_original)) * 100)
-        if desconto_percent < MIN_DISCOUNT_PERCENT:
+        if desconto_percent < limite_desconto:
             continue
 
         ofertas.append(

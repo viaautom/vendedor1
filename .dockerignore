@@ -6,3 +6,5 @@ __pycache__
 .git
 ofertas.db
 *.md
+whatsapp-service/node_modules
+whatsapp-service/auth_info

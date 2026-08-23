@@ -35,11 +35,12 @@ def _get_api() -> AmazonApi:
     return _api
 
 
-def buscar_ofertas(keyword: str, limite: int = 10) -> list[dict]:
+def buscar_ofertas(keyword: str, limite: int = 10, min_discount_percent: int = None) -> list[dict]:
     """
     Busca produtos por palavra-chave na Amazon e retorna apenas os que
     têm desconto igual ou acima do mínimo configurado.
     """
+    limite_desconto = MIN_DISCOUNT_PERCENT if min_discount_percent is None else min_discount_percent
     api = _get_api()
     resultados = api.search_items(keywords=keyword, item_count=limite)
 
@@ -60,7 +61,7 @@ def buscar_ofertas(keyword: str, limite: int = 10) -> list[dict]:
             continue
 
         desconto_percent = round((1 - (preco_atual / preco_original)) * 100)
-        if desconto_percent < MIN_DISCOUNT_PERCENT:
+        if desconto_percent < limite_desconto:
             continue
 
         ofertas.append(

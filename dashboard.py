@@ -1,5 +1,6 @@
-import html
+import hashlib
 import urllib.parse
+from datetime import datetime
 
 import streamlit as st
 
@@ -8,202 +9,41 @@ from config import (
     AMAZON_ACCESS_KEY,
     AMAZON_SECRET_KEY,
     AMAZON_PARTNER_TAG,
-    CHECK_INTERVAL_HOURS,
-    KEYWORDS,
-    MAX_PRICE,
-    MIN_DISCOUNT_PERCENT,
-    MIN_PRICE,
     SHOPEE_PARTNER_ID,
     SHOPEE_PARTNER_KEY,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHANNEL_ID,
 )
 from clients import amazon_client, shopee_client
+import settings
+import storage
 import telegram_poster
-
-CSS = """
-<style>
-:root {
-    --accent: #22d3ee;
-    --accent-soft: rgba(34, 211, 238, 0.12);
-    --ok: #34d399;
-    --pending: #f87171;
-    --card-bg: #141a2a;
-    --card-border: rgba(255, 255, 255, 0.08);
-    --text-muted: #8b93a7;
-}
-
-#MainMenu, footer, header {visibility: hidden;}
-
-.hero {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.75rem 2rem;
-    margin-bottom: 1.5rem;
-    border-radius: 20px;
-    background: linear-gradient(135deg, rgba(34,211,238,0.16), rgba(20,26,42,0.4));
-    border: 1px solid var(--card-border);
-}
-.hero-emoji { font-size: 2.5rem; line-height: 1; }
-.hero h1 { margin: 0; font-size: 1.7rem; }
-.hero p { margin: 0.2rem 0 0; color: var(--text-muted); }
-
-.stat-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 16px;
-    padding: 1rem 1.1rem;
-    height: 100%;
-}
-.stat-icon { font-size: 1.3rem; opacity: 0.85; }
-.stat-value { font-size: 1.6rem; font-weight: 700; margin-top: 0.15rem; }
-.stat-label { color: var(--text-muted); font-size: 0.85rem; }
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.15rem 0.65rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-.badge-ok { background: rgba(52, 211, 153, 0.14); color: var(--ok); }
-.badge-pending { background: rgba(248, 113, 113, 0.14); color: var(--pending); }
-
-.chip {
-    display: inline-block;
-    background: var(--accent-soft);
-    color: var(--accent);
-    border-radius: 999px;
-    padding: 0.2rem 0.7rem;
-    margin: 0.15rem 0.25rem 0.15rem 0;
-    font-size: 0.8rem;
-}
-
-.section-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin: 0.5rem 0 0.75rem;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 18px !important;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-}
-
-.offer-img {
-    width: 100%;
-    height: 150px;
-    border-radius: 12px;
-    background-size: cover;
-    background-position: center;
-    background-color: rgba(255,255,255,0.04);
-    margin-bottom: 0.6rem;
-}
-.offer-badge {
-    display: inline-block;
-    background: rgba(52, 211, 153, 0.16);
-    color: var(--ok);
-    font-weight: 700;
-    padding: 0.1rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    margin-bottom: 0.35rem;
-}
-.offer-title {
-    font-weight: 600;
-    line-height: 1.3;
-    margin-bottom: 0.25rem;
-    min-height: 2.6em;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-.offer-price { font-size: 1.25rem; font-weight: 700; }
-.offer-store { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
-
-.stButton > button, .stLinkButton > a {
-    border-radius: 10px !important;
-}
-</style>
-"""
+import whatsapp_client
+import ui_common as ui
 
 
-def _safe_url(url: str) -> str:
-    url = (url or "").strip()
-    if not url.startswith(("http://", "https://")):
-        return ""
-    return url.replace("'", "%27")
+def checar_senha() -> bool:
+    if not ADMIN_PASSWORD:
+        return True
+    if st.session_state.get("autenticado"):
+        return True
 
-
-def inject_css():
-    st.markdown(CSS, unsafe_allow_html=True)
-
-
-def hero():
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-emoji">🛒</div>
-            <div>
-                <h1>Painel Vendedor1</h1>
-                <p>Busca ofertas, valida configurações e permite envio manual por Telegram/WhatsApp.</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def stat_card(icon: str, label: str, value: str) -> str:
-    return (
-        f'<div class="stat-card">'
-        f'<div class="stat-icon">{icon}</div>'
-        f'<div class="stat-value">{html.escape(str(value))}</div>'
-        f'<div class="stat-label">{html.escape(label)}</div>'
-        f"</div>"
-    )
-
-
-def status_tag(label: str, ok: bool) -> str:
-    cls = "badge-ok" if ok else "badge-pending"
-    icone = "●" if ok else "○"
-    return f'<span class="badge {cls}">{icone} {html.escape(label)}</span>'
-
-
-def buscar_ofertas_hoje() -> list[dict]:
-    ofertas = []
-
-    for palavra in KEYWORDS:
-        for cliente in (shopee_client, amazon_client):
-            try:
-                ofertas.extend(cliente.buscar_ofertas(palavra))
-            except Exception as exc:
-                st.sidebar.warning(f"Falha em {cliente.__name__}: {exc}")
-
-    visto = set()
-    unicas = []
-    for oferta in ofertas:
-        chave = (oferta.get("fonte"), oferta.get("id"))
-        if chave in visto:
-            continue
-        visto.add(chave)
-        unicas.append(oferta)
-
-    return sorted(unicas, key=lambda item: item.get("desconto_percent", 0), reverse=True)
+    ui.inject_css()
+    ui.hero("🔒", "Painel Vendedor1", "Acesso restrito. Digite a senha para continuar.")
+    senha = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if senha == ADMIN_PASSWORD:
+            st.session_state["autenticado"] = True
+            st.rerun()
+        else:
+            st.error("Senha incorreta.")
+    return False
 
 
 def formatar_whatsapp_link(oferta: dict) -> str:
     texto = (
         f"🔥 {oferta.get('nome', 'Oferta')}\n"
-        f"💰 Preço: R$ {float(oferta.get('preco', 0)):.2f}\n"
+        f"💰 Preço: R$ {float(oferta.get('preco', 0) or 0):.2f}\n"
         f"📉 Desconto: {oferta.get('desconto_percent', 0)}%\n"
         f"🛒 Loja: {oferta.get('fonte', 'Loja')}\n"
         f"👉 {oferta.get('link_afiliado', '')}"
@@ -224,138 +64,325 @@ def teste_telegram():
     return telegram_poster.postar_oferta(oferta_teste)
 
 
-def render_offer_card(oferta: dict):
+def buscar_e_persistir(cfg: dict):
+    for palavra in cfg["keywords"]:
+        for cliente, fonte in ((shopee_client, "Shopee"), (amazon_client, "Amazon")):
+            try:
+                ofertas = cliente.buscar_ofertas(
+                    palavra, min_discount_percent=cfg["min_discount_percent"]
+                )
+            except Exception as exc:
+                st.sidebar.warning(f"Falha em {fonte} ('{palavra}'): {exc}")
+                continue
+
+            for oferta in ofertas:
+                oferta["keyword"] = palavra
+            ofertas = settings.filtrar_por_preco(ofertas, cfg)
+
+            for oferta in ofertas:
+                storage.registrar_oferta(oferta)
+            ids_vistos = {oferta["id"] for oferta in ofertas}
+            storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
+
+
+def id_manual(link: str) -> str:
+    return "manual_" + hashlib.md5(link.strip().encode("utf-8")).hexdigest()[:12]
+
+
+def formatar_data(iso: str) -> str:
+    try:
+        return datetime.fromisoformat(iso).strftime("%d/%m/%Y %H:%M")
+    except (TypeError, ValueError):
+        return "—"
+
+
+def render_offer_card(oferta: dict, grupos: list[dict]):
     with st.container(border=True):
-        imagem = _safe_url(oferta.get("imagem_url", ""))
-        if imagem:
-            st.markdown(
-                f'<div class="offer-img" style="background-image:url(\'{imagem}\')"></div>',
-                unsafe_allow_html=True,
-            )
-        nome = html.escape(str(oferta.get("nome", "Oferta")))
-        fonte = html.escape(str(oferta.get("fonte", "Loja")))
+        st.markdown(ui.oferta_card_inner_html(oferta), unsafe_allow_html=True)
         st.markdown(
-            f"""
-            <div class="offer-badge">-{oferta.get('desconto_percent', 0)}%</div>
-            <div class="offer-title">{nome}</div>
-            <div class="offer-price">R$ {float(oferta.get('preco', 0)):.2f}</div>
-            <div class="offer-store">{fonte}</div>
-            """,
+            f'<div class="offer-meta">🏷️ {oferta.get("keyword", "—")} · '
+            f'🕓 {formatar_data(oferta.get("ultima_vez_em"))} · '
+            f'{"🟢 disponível" if oferta.get("disponivel") else "🔴 esgotado"}</div>',
             unsafe_allow_html=True,
         )
-        col_tg, col_wpp = st.columns(2)
+        st.markdown(
+            ui.send_status_html(
+                bool(oferta.get("enviado_telegram")),
+                bool(oferta.get("enviado_whatsapp")),
+                bool(oferta.get("enviado_whatsapp_grupo")),
+            ),
+            unsafe_allow_html=True,
+        )
+        col_tg, col_wpp, col_conf = st.columns([1, 1, 1])
         with col_tg:
-            if st.button("📨 Telegram", key=f"telegram_{oferta.get('id')}", use_container_width=True):
+            if st.button("📨 Telegram", key=f"telegram_{oferta['id']}", use_container_width=True):
                 ok = telegram_poster.postar_oferta(oferta)
-                st.success("Enviado!") if ok else st.error("Falha ao enviar")
+                if ok:
+                    storage.marcar_enviado(oferta["id"], "telegram")
+                    st.rerun()
+                else:
+                    st.error("Falha ao enviar")
         with col_wpp:
-            st.link_button("💬 WhatsApp", formatar_whatsapp_link(oferta), use_container_width=True)
+            st.link_button("💬 Abrir", formatar_whatsapp_link(oferta), use_container_width=True)
+        with col_conf:
+            if st.button("✓ Enviado", key=f"wa_confirma_{oferta['id']}", use_container_width=True):
+                storage.marcar_enviado(oferta["id"], "whatsapp")
+                st.rerun()
+
+        if grupos:
+            if st.button("📲 Enviar aos grupos", key=f"grupo_{oferta['id']}", use_container_width=True):
+                texto = whatsapp_client.formatar_mensagem(oferta)
+                sucesso_algum = any(
+                    whatsapp_client.enviar_mensagem(grupo["jid"], texto) for grupo in grupos
+                )
+                if sucesso_algum:
+                    storage.marcar_enviado(oferta["id"], "whatsapp_grupo")
+                    st.success("Enviado aos grupos.")
+                    st.rerun()
+                else:
+                    st.error("Falha ao enviar — confira a conexão em '📲 Grupos'.")
 
 
 def render_offer_grid(ofertas: list[dict], colunas: int = 3):
+    grupos = storage.grupos_ativos()
     for inicio in range(0, len(ofertas), colunas):
         pedaco = ofertas[inicio:inicio + colunas]
         cols = st.columns(colunas)
         for col, oferta in zip(cols, pedaco):
             with col:
-                render_offer_card(oferta)
+                render_offer_card(oferta, grupos)
 
 
-def checar_senha() -> bool:
-    if not ADMIN_PASSWORD:
-        return True
-    if st.session_state.get("autenticado"):
-        return True
-
-    inject_css()
-    st.markdown(
-        '<div class="hero"><div class="hero-emoji">🔒</div>'
-        "<div><h1>Painel Vendedor1</h1><p>Acesso restrito. Digite a senha para continuar.</p></div></div>",
-        unsafe_allow_html=True,
-    )
-    senha = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        if senha == ADMIN_PASSWORD:
-            st.session_state["autenticado"] = True
-            st.rerun()
-        else:
-            st.error("Senha incorreta.")
-    return False
-
-
-def main():
-    st.set_page_config(page_title="Painel Vendedor1", page_icon="🛒", layout="wide")
-    if not checar_senha():
-        return
-    inject_css()
-    hero()
-
+def view_ofertas(cfg: dict):
     col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(stat_card("🔑", "Palavras-chave", len(KEYWORDS)), unsafe_allow_html=True)
-    col2.markdown(stat_card("📉", "Desconto mínimo", f"{MIN_DISCOUNT_PERCENT}%"), unsafe_allow_html=True)
-    col3.markdown(stat_card("💰", "Preço mínimo", f"R$ {MIN_PRICE:.2f}"), unsafe_allow_html=True)
-    col4.markdown(stat_card("⏱️", "Intervalo", f"{CHECK_INTERVAL_HOURS}h"), unsafe_allow_html=True)
-
-    with st.sidebar:
-        def config_badge(ok: bool) -> str:
-            return status_tag("ok" if ok else "pendente", ok)
-
-        st.markdown('<div class="section-title">Configuração ativa</div>', unsafe_allow_html=True)
-        st.markdown(f"Telegram token: {config_badge(bool(TELEGRAM_BOT_TOKEN))}", unsafe_allow_html=True)
-        st.markdown(f"Canal Telegram: {config_badge(bool(TELEGRAM_CHANNEL_ID))}", unsafe_allow_html=True)
-        st.markdown(f"Amazon access key: {config_badge(bool(AMAZON_ACCESS_KEY))}", unsafe_allow_html=True)
-        st.markdown(f"Amazon secret: {config_badge(bool(AMAZON_SECRET_KEY))}", unsafe_allow_html=True)
-        st.markdown(f"Amazon partner tag: {config_badge(bool(AMAZON_PARTNER_TAG))}", unsafe_allow_html=True)
-        st.markdown(f"Shopee partner ID: {config_badge(bool(SHOPEE_PARTNER_ID))}", unsafe_allow_html=True)
-        st.markdown(f"Shopee partner key: {config_badge(bool(SHOPEE_PARTNER_KEY))}", unsafe_allow_html=True)
-        st.write(f"Máximo: R$ {MAX_PRICE:.2f}")
-        st.markdown('<div class="section-title">Keywords</div>', unsafe_allow_html=True)
-        chips = "".join(f'<span class="chip">{html.escape(p)}</span>' for p in KEYWORDS)
-        st.markdown(chips, unsafe_allow_html=True)
-
-    st.markdown('<div class="section-title">Status operacional</div>', unsafe_allow_html=True)
-    col_status_1, col_status_2, col_status_3 = st.columns(3)
-    with col_status_1:
-        pronto = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID)
-        st.markdown(f"**Telegram** {status_tag('pronto' if pronto else 'pendente', pronto)}", unsafe_allow_html=True)
-    with col_status_2:
-        pronto = bool(AMAZON_ACCESS_KEY and AMAZON_SECRET_KEY and AMAZON_PARTNER_TAG)
-        st.markdown(f"**Amazon** {status_tag('pronto' if pronto else 'pendente', pronto)}", unsafe_allow_html=True)
-    with col_status_3:
-        pronto = bool(SHOPEE_PARTNER_ID and SHOPEE_PARTNER_KEY)
-        st.markdown(f"**Shopee** {status_tag('pronto' if pronto else 'pendente', pronto)}", unsafe_allow_html=True)
+    todas = storage.listar_ofertas()
+    disponiveis = [o for o in todas if o.get("disponivel")]
+    col1.markdown(ui.stat_card("📦", "No repositório", len(todas)), unsafe_allow_html=True)
+    col2.markdown(ui.stat_card("🟢", "Disponíveis", len(disponiveis)), unsafe_allow_html=True)
+    col3.markdown(ui.stat_card("📉", "Desconto mínimo", f"{cfg['min_discount_percent']}%"), unsafe_allow_html=True)
+    col4.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
 
     st.write("")
     row = st.columns([1, 1, 1])
     with row[0]:
         if st.button("🔎 Buscar ofertas agora", use_container_width=True):
             with st.spinner("Consultando Amazon e Shopee..."):
-                ofertas = buscar_ofertas_hoje()
-            st.session_state["ofertas"] = ofertas
+                buscar_e_persistir(cfg)
+            st.rerun()
     with row[1]:
         if st.button("📨 Testar Telegram", use_container_width=True):
             ok = teste_telegram()
-            if ok:
-                st.success("Mensagem de teste enviada com sucesso no Telegram.")
-            else:
-                st.error("Falha no teste do Telegram. Verifique o token e o canal.")
+            st.success("Mensagem de teste enviada.") if ok else st.error("Falha no teste do Telegram.")
     with row[2]:
-        st.button(
-            "🗑️ Limpar lista",
-            use_container_width=True,
-            on_click=lambda: st.session_state.__setitem__("ofertas", []),
-        )
+        mostrar_todas = st.toggle("Mostrar esgotados", value=True)
 
-    ofertas = st.session_state.get("ofertas", [])
+    with st.expander("➕ Adicionar oferta manualmente (colar link)"):
+        with st.form("form_manual", clear_on_submit=True):
+            link = st.text_input("Link do produto (afiliado)")
+            nome = st.text_input("Nome do produto")
+            c1, c2, c3 = st.columns(3)
+            preco = c1.number_input("Preço (R$)", min_value=0.0, step=0.01)
+            desconto = c2.number_input("Desconto (%)", min_value=0, max_value=100, step=1)
+            nicho = c3.selectbox("Nicho", options=cfg["keywords"] or ["geral"])
+            imagem_url = st.text_input("URL da imagem (opcional)")
+            fonte = st.text_input("Loja/fonte", value="Manual")
+            if st.form_submit_button("Adicionar ao repositório"):
+                if link and nome:
+                    storage.registrar_oferta(
+                        {
+                            "id": id_manual(link),
+                            "fonte": fonte or "Manual",
+                            "keyword": nicho,
+                            "nome": nome,
+                            "preco": preco,
+                            "desconto_percent": int(desconto),
+                            "link_afiliado": link,
+                            "imagem_url": imagem_url,
+                        }
+                    )
+                    st.success("Oferta adicionada. Já aparece na lista e na vitrine pública.")
+                    st.rerun()
+                else:
+                    st.warning("Preencha ao menos o link e o nome do produto.")
 
+    ofertas = todas if mostrar_todas else disponiveis
     if ofertas:
-        st.markdown(f'<div class="section-title">Ofertas encontradas: {len(ofertas)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-title">Ofertas no repositório: {len(ofertas)}</div>', unsafe_allow_html=True)
         render_offer_grid(ofertas)
     else:
-        st.info("Ainda não houve busca. Clique em 'Buscar ofertas agora' para consultar as ofertas ativas.")
+        st.info("Nenhuma oferta no repositório ainda. Clique em 'Buscar ofertas agora' ou adicione uma manualmente.")
+
+
+def view_configuracoes(cfg: dict):
+    st.markdown('<div class="section-title">Filtros e busca</div>', unsafe_allow_html=True)
+    with st.form("form_config"):
+        keywords_texto = st.text_area(
+            "Palavras-chave (uma por linha)", value="\n".join(cfg["keywords"]), height=160
+        )
+        c1, c2 = st.columns(2)
+        min_discount = c1.number_input(
+            "Desconto mínimo (%)", min_value=0, max_value=100, value=cfg["min_discount_percent"]
+        )
+        intervalo = c2.number_input(
+            "Intervalo de busca (horas)", min_value=1, max_value=168, value=cfg["check_interval_hours"]
+        )
+        c3, c4 = st.columns([2, 1])
+        preco_min = c3.number_input("Preço mínimo (R$)", min_value=0.0, value=float(cfg["min_price"]), step=1.0)
+        aplica_preco_min = c4.checkbox("Não se aplica", value=not cfg["min_price_aplica"])
+        preco_max = st.number_input("Preço máximo (R$)", min_value=0.0, value=float(cfg["max_price"]), step=1.0)
+
+        if st.form_submit_button("💾 Salvar configurações"):
+            novas = {
+                "keywords": [linha.strip() for linha in keywords_texto.split("\n") if linha.strip()],
+                "min_discount_percent": int(min_discount),
+                "min_price": float(preco_min),
+                "min_price_aplica": not aplica_preco_min,
+                "max_price": float(preco_max),
+                "check_interval_hours": int(intervalo),
+            }
+            settings.salvar_configuracoes(novas)
+            st.success("Configurações salvas. O worker aplica o novo intervalo no próximo ciclo.")
+            st.rerun()
+
+    st.markdown('<div class="section-title">Credenciais (via .env / Dokploy)</div>', unsafe_allow_html=True)
+    st.caption("Essas não são editáveis por aqui — são segredos de infraestrutura.")
+    st.markdown(f"Telegram: {ui.status_tag('ok' if TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID else 'pendente', bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID))}", unsafe_allow_html=True)
+    st.markdown(f"Amazon: {ui.status_tag('ok' if AMAZON_ACCESS_KEY and AMAZON_SECRET_KEY and AMAZON_PARTNER_TAG else 'pendente', bool(AMAZON_ACCESS_KEY and AMAZON_SECRET_KEY and AMAZON_PARTNER_TAG))}", unsafe_allow_html=True)
+    st.markdown(f"Shopee: {ui.status_tag('ok' if SHOPEE_PARTNER_ID and SHOPEE_PARTNER_KEY else 'pendente', bool(SHOPEE_PARTNER_ID and SHOPEE_PARTNER_KEY))}", unsafe_allow_html=True)
+
+
+def view_linktree():
+    links = storage.listar_links()
+    kv = storage.obter_config_kv()
+
+    st.markdown('<div class="section-title">Identidade</div>', unsafe_allow_html=True)
+    with st.form("form_linktree_identidade"):
+        titulo = st.text_input("Título", value=kv.get("linktree_titulo", "Vendedor1"))
+        subtitulo = st.text_input(
+            "Subtítulo", value=kv.get("linktree_subtitulo", "Ofertas de fitness & bem-estar todos os dias")
+        )
+        c1, c2 = st.columns(2)
+        cor_primaria = c1.color_picker("Cor primária", value=kv.get("linktree_cor_primaria", "#22d3ee"))
+        cor_fundo = c2.color_picker("Cor de fundo", value=kv.get("linktree_cor_fundo", "#060a14"))
+        logo_emoji = st.text_input("Emoji do logo (usado se não houver imagem)", value=kv.get("linktree_logo_emoji", "🛒"))
+        logo_upload = st.file_uploader("Logo (imagem, opcional)", type=["png", "jpg", "jpeg"])
+        if st.form_submit_button("💾 Salvar identidade"):
+            storage.definir_config_kv(
+                {
+                    "linktree_titulo": titulo,
+                    "linktree_subtitulo": subtitulo,
+                    "linktree_cor_primaria": cor_primaria,
+                    "linktree_cor_fundo": cor_fundo,
+                    "linktree_logo_emoji": logo_emoji,
+                }
+            )
+            if logo_upload is not None:
+                with open(ui.logo_path(), "wb") as arquivo:
+                    arquivo.write(logo_upload.getvalue())
+            st.success("Identidade da linktree salva.")
+            st.rerun()
+
+    st.markdown('<div class="section-title">Links</div>', unsafe_allow_html=True)
+    if "linktree_edit" not in st.session_state:
+        st.session_state["linktree_edit"] = links or [{"label": "", "url": "", "emoji": "🔗", "ativo": True}]
+
+    with st.form("form_linktree_links"):
+        editados = []
+        for idx, link in enumerate(st.session_state["linktree_edit"]):
+            c1, c2, c3, c4 = st.columns([1, 3, 4, 1])
+            emoji = c1.text_input("Ícone", value=link.get("emoji", "🔗"), key=f"lk_emoji_{idx}")
+            label = c2.text_input("Nome", value=link.get("label", ""), key=f"lk_label_{idx}")
+            url = c3.text_input("URL", value=link.get("url", ""), key=f"lk_url_{idx}")
+            ativo = c4.checkbox("Ativo", value=bool(link.get("ativo", True)), key=f"lk_ativo_{idx}")
+            editados.append({"label": label, "url": url, "emoji": emoji, "ativo": ativo})
+
+        col_add, col_save = st.columns(2)
+        adicionar = col_add.form_submit_button("➕ Adicionar linha")
+        salvar = col_save.form_submit_button("💾 Salvar links")
+
+        if adicionar:
+            editados.append({"label": "", "url": "", "emoji": "🔗", "ativo": True})
+            st.session_state["linktree_edit"] = editados
+            st.rerun()
+        if salvar:
+            validos = [link for link in editados if link["label"] and link["url"]]
+            storage.salvar_links(validos)
+            st.session_state["linktree_edit"] = validos or editados
+            st.success("Links salvos.")
+            st.rerun()
+
+
+def view_grupos():
+    st_status = whatsapp_client.status()
+    conectado = st_status.get("connected", False)
+
+    if st.button("🔄 Atualizar status"):
+        st.rerun()
+
+    st.markdown(
+        f'<div class="section-title">Status: {ui.status_tag("conectado" if conectado else "desconectado", conectado)}</div>',
+        unsafe_allow_html=True,
+    )
+
+    if not conectado:
+        st.info(
+            "Escaneie o QR code abaixo no WhatsApp do número dedicado ao canal: "
+            "abra o WhatsApp → Aparelhos conectados → Conectar um aparelho."
+        )
+        qr = whatsapp_client.qr_disponivel()
+        if qr:
+            st.image(qr, width=320)
+        else:
+            st.warning("Aguardando o serviço gerar o QR code... clique em 'Atualizar status' em alguns segundos.")
+        return
+
+    st.success("Conectado! Selecione abaixo os grupos que devem receber as ofertas automaticamente.")
+    grupos_api = whatsapp_client.listar_grupos()
+    salvos = {g["jid"]: g["ativo"] for g in storage.listar_grupos_salvos()}
+
+    if not grupos_api:
+        st.info("Nenhum grupo encontrado — confirme que o número dedicado já foi adicionado aos grupos.")
+        return
+
+    with st.form("form_grupos"):
+        selecionados = []
+        for grupo in grupos_api:
+            ativo = st.checkbox(
+                grupo["name"] or grupo["jid"],
+                value=bool(salvos.get(grupo["jid"], False)),
+                key=f"grupo_check_{grupo['jid']}",
+            )
+            selecionados.append({"jid": grupo["jid"], "nome": grupo["name"], "ativo": ativo})
+        if st.form_submit_button("💾 Salvar grupos"):
+            storage.salvar_grupos(selecionados)
+            st.success("Grupos salvos.")
+            st.rerun()
+
+
+def main():
+    st.set_page_config(page_title="Painel Vendedor1", page_icon="🛒", layout="wide")
+    if not checar_senha():
+        return
+
+    ui.inject_css()
+    ui.hero("🛒", "Painel Vendedor1", "Repositório de ofertas, configurações e linktree.")
+
+    with st.sidebar:
+        pagina = st.radio(
+            "Navegação", ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "📲 Grupos"], index=0
+        )
+
+    cfg = settings.carregar_configuracoes()
+
+    if pagina == "📋 Ofertas":
+        view_ofertas(cfg)
+    elif pagina == "⚙️ Configurações":
+        view_configuracoes(cfg)
+    elif pagina == "🔗 Linktree":
+        view_linktree()
+    else:
+        view_grupos()
 
 
 if __name__ == "__main__":
-    if "ofertas" not in st.session_state:
-        st.session_state["ofertas"] = []
     main()

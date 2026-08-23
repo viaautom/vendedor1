@@ -35,13 +35,14 @@ def _montar_headers(payload: str) -> dict:
     }
 
 
-def buscar_ofertas(keyword: str, limite: int = 20) -> list[dict]:
+def buscar_ofertas(keyword: str, limite: int = 20, min_discount_percent: int = None) -> list[dict]:
     """
     Busca produtos por palavra-chave e retorna apenas os que atendem
     ao desconto mínimo configurado.
     Retorna uma lista de dicts: id, nome, preco, preco_original,
     desconto_percent, link_afiliado, imagem_url.
     """
+    limite_desconto = MIN_DISCOUNT_PERCENT if min_discount_percent is None else min_discount_percent
     query = """
     query($keyword: String!, $limit: Int!) {
       productOfferV2(keyword: $keyword, limit: $limit) {
@@ -80,7 +81,7 @@ def buscar_ofertas(keyword: str, limite: int = 20) -> list[dict]:
     ofertas = []
     for item in nodes:
         desconto = item.get("priceDiscountRate", 0)
-        if desconto is None or desconto < MIN_DISCOUNT_PERCENT:
+        if desconto is None or desconto < limite_desconto:
             continue
         ofertas.append(
             {

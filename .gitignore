@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 ofertas.db
+whatsapp-service/node_modules/
+whatsapp-service/auth_info/

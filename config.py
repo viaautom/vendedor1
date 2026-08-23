@@ -47,3 +47,9 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "ofertas.db")
 # senha — só deixe vazio em teste local. Sempre defina uma senha forte antes
 # de publicar o painel na internet.
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+
+# --- WhatsApp (grupos, via serviço interno Baileys) ---
+# URL do serviço whatsapp-service na rede interna do Docker.
+WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://whatsapp:3000")
+# Precisa ser o mesmo valor configurado no whatsapp-service (WHATSAPP_SERVICE_TOKEN).
+WHATSAPP_SERVICE_TOKEN = os.getenv("WHATSAPP_SERVICE_TOKEN", "")

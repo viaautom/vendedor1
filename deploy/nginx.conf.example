@@ -1,28 +1,49 @@
 # Exemplo de configuração Nginx para quem NÃO estiver usando o Dokploy
-# (deploy manual, com Nginx + certbot rodando direto no host).
+# (deploy manual, com Nginx + certbot rodando direto no host, proxeando
+# para os 3 apps Streamlit publicados pelo docker-compose: linktree:8503,
+# loja:8502, dashboard:8501).
 #
 # Se você estiver usando o Dokploy, IGNORE este arquivo — o Dokploy já
 # gerencia domínio, proxy e HTTPS (Traefik) pela própria interface. Veja a
 # seção "Deploy com Dokploy" no README.md.
 #
-# Copie para /etc/nginx/sites-available/vendedor1, ajuste os domínios e o
-# caminho do projeto, ative com:
+# Copie para /etc/nginx/sites-available/vendedor1, ajuste os domínios,
+# ative com:
 #   ln -s /etc/nginx/sites-available/vendedor1 /etc/nginx/sites-enabled/
 # Valide e recarregue:
 #   nginx -t && systemctl reload nginx
 # Depois gere o HTTPS com:
 #   sudo certbot --nginx -d seudominio.com.br -d admin.seudominio.com.br
 
-# Página pública (linktree) — arquivo estático
+# Linktree (raiz) + vitrine pública ("/site") — mesmo domínio, dois apps.
 server {
     listen 80;
     server_name seudominio.com.br;
 
-    root /caminho/do/projeto/public/linktree;
-    index index.html;
-
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://127.0.0.1:8503;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+
+    # loja.py roda com --server.baseUrlPath=site, então o prefixo /site
+    # já é tratado pelo próprio Streamlit — só repassa o path como está.
+    location /site {
+        proxy_pass http://127.0.0.1:8502;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
     }
 }
 
