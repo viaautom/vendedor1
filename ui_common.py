@@ -113,12 +113,18 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
 
     .offer-img {{
         width: 100%;
-        height: 150px;
+        height: 190px;
         border-radius: 12px;
-        background-size: cover;
+        background-size: contain;
+        background-repeat: no-repeat;
         background-position: center;
         background-color: rgba(255,255,255,0.04);
         margin-bottom: 0.6rem;
+    }}
+    @media (max-width: 640px) {{
+        .offer-img {{ height: 220px; }}
+        .hero {{ padding: 1.25rem 1.4rem; }}
+        .hero h1 {{ font-size: 1.4rem; }}
     }}
     .offer-thumb {{
         width: 64px;
