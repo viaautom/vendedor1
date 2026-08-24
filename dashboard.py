@@ -1,6 +1,8 @@
 import base64
+import csv
 import hashlib
 import html
+import io
 import re
 import urllib.parse
 from datetime import datetime
@@ -506,6 +508,43 @@ def view_configuracoes(cfg: dict):
     st.markdown(f"Shopee: {ui.status_tag('ok' if SHOPEE_PARTNER_ID and SHOPEE_PARTNER_KEY else 'pendente', bool(SHOPEE_PARTNER_ID and SHOPEE_PARTNER_KEY))}", unsafe_allow_html=True)
 
 
+def view_leads_acessos():
+    resumo = storage.resumo_leads_acessos()
+    col1, col2, col3, col4 = st.columns(4)
+    col1.markdown(ui.stat_card("👥", "Leads totais", resumo["total_leads"]), unsafe_allow_html=True)
+    col2.markdown(ui.stat_card("👁️", "Acessos totais", resumo["total_acessos"]), unsafe_allow_html=True)
+    col3.markdown(ui.stat_card("📥", "Leads hoje", resumo["leads_hoje"]), unsafe_allow_html=True)
+    col4.markdown(ui.stat_card("📈", "Acessos hoje", resumo["acessos_hoje"]), unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Acessos nos últimos 14 dias</div>', unsafe_allow_html=True)
+    acessos = storage.acessos_por_dia()
+    if acessos:
+        import pandas as pd
+        grafico = pd.DataFrame(acessos).pivot_table(
+            index="dia", columns="pagina", values="total", aggfunc="sum", fill_value=0
+        )
+        st.line_chart(grafico)
+    else:
+        st.info("Ainda não há acessos registrados nas páginas públicas.")
+
+    st.markdown('<div class="section-title">Leads captados</div>', unsafe_allow_html=True)
+    leads = storage.listar_leads()
+    if not leads:
+        st.info("Nenhum lead captado ainda.")
+        return
+    dados_csv = io.StringIO()
+    campos = ["nome", "email", "whatsapp", "origem", "criado_em"]
+    escritor = csv.DictWriter(dados_csv, fieldnames=campos)
+    escritor.writeheader()
+    escritor.writerows({campo: lead.get(campo, "") for campo in campos} for lead in leads)
+    st.download_button("⬇️ Exportar leads CSV", dados_csv.getvalue(), "leads.csv", "text/csv", use_container_width=True)
+    st.dataframe(
+        [{"Nome": lead["nome"], "E-mail": lead["email"], "WhatsApp": lead.get("whatsapp", ""), "Origem": lead.get("origem", ""), "Cadastrado em": formatar_data(lead["criado_em"])} for lead in leads],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
 def view_linktree():
     links = storage.listar_links()
     kv = storage.obter_config_kv()
@@ -711,7 +750,7 @@ def view_grupos():
             st.rerun()
 
 
-PAGINAS = ["📋 Ofertas", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos", "⬇️ Vídeo"]
+PAGINAS = ["📋 Ofertas", "👥 Leads e acessos", "⚙️ Configurações", "🔗 Linktree", "🛍️ Vitrine", "📲 Grupos", "⬇️ Vídeo"]
 
 
 def main():
@@ -743,6 +782,8 @@ def main():
 
     if pagina == "📋 Ofertas":
         view_ofertas(cfg)
+    elif pagina == "👥 Leads e acessos":
+        view_leads_acessos()
     elif pagina == "⚙️ Configurações":
         view_configuracoes(cfg)
     elif pagina == "🔗 Linktree":

@@ -157,6 +157,28 @@ def _connect():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS leads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            whatsapp TEXT,
+            origem TEXT,
+            consentimento INTEGER DEFAULT 0,
+            criado_em TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS acessos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pagina TEXT NOT NULL,
+            acessado_em TEXT NOT NULL
+        )
+        """
+    )
     try:
         conn.execute("ALTER TABLE ofertas_encontradas ADD COLUMN enviado_whatsapp_grupo INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
@@ -566,3 +588,70 @@ def salvar_grupos(grupos: list[dict]):
     )
     conn.commit()
     conn.close()
+
+
+# --- Leads e acessos -------------------------------------------------------
+
+def registrar_acesso(pagina: str):
+    conn = _connect()
+    conn.execute(
+        "INSERT INTO acessos (pagina, acessado_em) VALUES (?, ?)",
+        (pagina, datetime.utcnow().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def salvar_lead(nome: str, email: str, whatsapp: str, origem: str) -> bool:
+    """Salva um lead novo e retorna False quando o e-mail já existe."""
+    conn = _connect()
+    try:
+        conn.execute(
+            """
+            INSERT INTO leads (nome, email, whatsapp, origem, consentimento, criado_em)
+            VALUES (?, ?, ?, ?, 1, ?)
+            """,
+            (nome.strip(), email.strip().lower(), whatsapp.strip(), origem, datetime.utcnow().isoformat()),
+        )
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False
+    conn.commit()
+    conn.close()
+    return True
+
+
+def resumo_leads_acessos() -> dict:
+    conn = _connect()
+    hoje = datetime.utcnow().strftime("%Y-%m-%d")
+    resumo = {
+        "total_leads": conn.execute("SELECT COUNT(*) FROM leads").fetchone()[0],
+        "total_acessos": conn.execute("SELECT COUNT(*) FROM acessos").fetchone()[0],
+        "leads_hoje": conn.execute("SELECT COUNT(*) FROM leads WHERE substr(criado_em, 1, 10) = ?", (hoje,)).fetchone()[0],
+        "acessos_hoje": conn.execute("SELECT COUNT(*) FROM acessos WHERE substr(acessado_em, 1, 10) = ?", (hoje,)).fetchone()[0],
+    }
+    conn.close()
+    return resumo
+
+
+def acessos_por_dia(dias: int = 14) -> list[dict]:
+    limite = (datetime.utcnow() - timedelta(days=dias - 1)).strftime("%Y-%m-%d")
+    conn = _connect()
+    linhas = conn.execute(
+        """
+        SELECT substr(acessado_em, 1, 10) AS dia, pagina, COUNT(*) AS total
+        FROM acessos WHERE substr(acessado_em, 1, 10) >= ?
+        GROUP BY dia, pagina ORDER BY dia ASC
+        """,
+        (limite,),
+    ).fetchall()
+    conn.close()
+    return [{"dia": dia, "pagina": pagina, "total": total} for dia, pagina, total in linhas]
+
+
+def listar_leads() -> list[dict]:
+    conn = _connect()
+    conn.row_factory = sqlite3.Row
+    linhas = conn.execute("SELECT * FROM leads ORDER BY criado_em DESC").fetchall()
+    conn.close()
+    return [dict(linha) for linha in linhas]

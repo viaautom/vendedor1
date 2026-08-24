@@ -4,6 +4,7 @@ admin (aba "Linktree") e lidos daqui em tempo real, sem precisar de deploy.
 """
 import base64
 import os
+import re
 
 import streamlit as st
 
@@ -12,6 +13,10 @@ import ui_common as ui
 
 
 def main():
+    if not st.session_state.get("acesso_registrado"):
+        storage.registrar_acesso("linktree")
+        st.session_state["acesso_registrado"] = True
+
     kv = storage.obter_config_kv()
     titulo = kv.get("linktree_titulo", "Vendedor1")
     subtitulo = kv.get("linktree_subtitulo", "Ofertas de fitness & bem-estar todos os dias")
@@ -46,15 +51,31 @@ def main():
     links = storage.listar_links(somente_ativos=True)
     if not links:
         st.info("Nenhum link configurado ainda.")
-        return
+    else:
+        html_links = "".join(
+            f'<a class="link-card" href="{ui.safe_url(link["url"])}" target="_blank" rel="noopener">'
+            f'<span class="emoji">{link["emoji"]}</span><span>{link["label"]}</span></a>'
+            for link in links
+            if ui.safe_url(link["url"])
+        )
+        st.markdown(html_links, unsafe_allow_html=True)
 
-    html_links = "".join(
-        f'<a class="link-card" href="{ui.safe_url(link["url"])}" target="_blank" rel="noopener">'
-        f'<span class="emoji">{link["emoji"]}</span><span>{link["label"]}</span></a>'
-        for link in links
-        if ui.safe_url(link["url"])
-    )
-    st.markdown(html_links, unsafe_allow_html=True)
+    with st.expander("📩 Receba ofertas no WhatsApp"):
+        with st.form("form_lead_linktree", clear_on_submit=True):
+            nome = st.text_input("Seu nome *")
+            email = st.text_input("Seu e-mail *")
+            whatsapp = st.text_input("WhatsApp")
+            consentimento = st.checkbox("Aceito receber ofertas e novidades.")
+            if st.form_submit_button("Quero receber ofertas"):
+                email_valido = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email.strip())
+                if not nome.strip() or not email_valido:
+                    st.warning("Informe nome e um e-mail válido.")
+                elif not consentimento:
+                    st.warning("Confirme o aceite para receber as ofertas.")
+                elif storage.salvar_lead(nome, email, whatsapp, "linktree"):
+                    st.success("Cadastro realizado. Obrigado!")
+                else:
+                    st.info("Esse e-mail já está cadastrado.")
 
 
 if __name__ == "__main__":
