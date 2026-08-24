@@ -14,6 +14,23 @@ _PADRAO_ID_PRODUTO = re.compile(r"^[A-Z]{3}\d{3}$")
 _TOTAL_IDS_PRODUTOS = 26**3 * 1000
 
 
+def _candidato_id(chave: str, usados: set[str]) -> str:
+    inicio = int.from_bytes(
+        hashlib.sha256(chave.encode("utf-8")).digest()[:4], "big"
+    ) % _TOTAL_IDS_PRODUTOS
+    for deslocamento in range(_TOTAL_IDS_PRODUTOS):
+        numero = (inicio + deslocamento) % _TOTAL_IDS_PRODUTOS
+        letras_numero, digitos = divmod(numero, 1000)
+        letras = ""
+        for _ in range(3):
+            letras = chr(65 + letras_numero % 26) + letras
+            letras_numero //= 26
+        candidato = f"{letras}{digitos:03d}"
+        if candidato not in usados:
+            return candidato
+    raise RuntimeError("Limite de 17.576.000 IDs de produtos atingido.")
+
+
 def gerar_id_curto(nome: str, link: str = "", prefix: str = "P") -> str:
     """Reserva um ID no formato AAA000, sem usar o nome no resultado.
 
@@ -30,17 +47,9 @@ def gerar_id_curto(nome: str, link: str = "", prefix: str = "P") -> str:
         if existente and _PADRAO_ID_PRODUTO.fullmatch(existente[0]):
             return existente[0]
 
-        inicio = int.from_bytes(
-            hashlib.sha256(chave.encode("utf-8")).digest()[:4], "big"
-        ) % _TOTAL_IDS_PRODUTOS
-        for deslocamento in range(_TOTAL_IDS_PRODUTOS):
-            numero = (inicio + deslocamento) % _TOTAL_IDS_PRODUTOS
-            letras_numero, digitos = divmod(numero, 1000)
-            letras = ""
-            for _ in range(3):
-                letras = chr(65 + letras_numero % 26) + letras
-                letras_numero //= 26
-            candidato = f"{letras}{digitos:03d}"
+        usados = {row[0] for row in conn.execute("SELECT id FROM ids_produtos")}
+        for _ in range(_TOTAL_IDS_PRODUTOS):
+            candidato = _candidato_id(chave, usados)
             try:
                 if existente:
                     id_antigo = existente[0]
@@ -63,7 +72,7 @@ def gerar_id_curto(nome: str, link: str = "", prefix: str = "P") -> str:
                 conn.commit()
                 return candidato
             except sqlite3.IntegrityError:
-                continue
+                usados.add(candidato)
         raise RuntimeError("Limite de 17.576.000 IDs de produtos atingido.")
     finally:
         conn.close()
@@ -166,7 +175,48 @@ def _connect():
         )
         """
     )
+    _migrar_ids_legados(conn)
     return conn
+
+
+def _migrar_ids_legados(conn):
+    """Converte IDs antigos e suas referências para o formato AAA000."""
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    linhas = conn.execute(
+        "SELECT id, chave FROM ids_produtos ORDER BY rowid"
+    ).fetchall()
+    usados = {
+        row[0]
+        for row in linhas
+        if _PADRAO_ID_PRODUTO.fullmatch(row[0])
+    }
+    try:
+        for id_antigo, chave in linhas:
+            if _PADRAO_ID_PRODUTO.fullmatch(id_antigo):
+                continue
+            novo_id = _candidato_id(chave, usados)
+            conn.execute(
+                "UPDATE ids_produtos SET id = ? WHERE id = ?",
+                (novo_id, id_antigo),
+            )
+            conn.execute(
+                "UPDATE ofertas_encontradas SET id = ? WHERE id = ?",
+                (novo_id, id_antigo),
+            )
+            conn.execute(
+                "UPDATE ofertas_postadas SET id = ? WHERE id = ?",
+                (novo_id, id_antigo),
+            )
+            conn.execute(
+                "UPDATE envios_log SET oferta_id = ? WHERE oferta_id = ?",
+                (novo_id, id_antigo),
+            )
+            usados.add(novo_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def ja_foi_postada(oferta_id: str) -> bool:
