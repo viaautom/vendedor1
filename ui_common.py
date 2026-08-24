@@ -220,8 +220,7 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
     }}
     .banner-card img {{
         width: 100%;
-        height: 100%;
-        object-fit: cover;
+        height: auto;
         display: block;
     }}
 
@@ -280,10 +279,12 @@ def oferta_card_inner_html(oferta: dict) -> str:
     imagem = safe_url(oferta.get("imagem_url", ""))
     nome = html.escape(str(oferta.get("nome", "Oferta")))
     fonte = html.escape(str(oferta.get("fonte", "Loja")))
+    desconto = oferta.get("desconto_percent", 0) or 0
     partes = []
     if imagem:
         partes.append(f'<div class="offer-img" style="background-image:url(\'{imagem}\')"></div>')
-    partes.append(f'<div class="offer-badge">-{oferta.get("desconto_percent", 0)}%</div>')
+    if desconto > 0:
+        partes.append(f'<div class="offer-badge">-{desconto}%</div>')
     partes.append(f'<div class="offer-title">{nome}</div>')
     partes.append(f'<div class="offer-price">R$ {float(oferta.get("preco", 0) or 0):.2f}</div>')
     partes.append(f'<div class="offer-store">{fonte}</div>')
@@ -295,7 +296,7 @@ def banner_html(banner: dict, altura: int = 180) -> str:
     link = safe_url(banner.get("link_url", ""))
     if not imagem:
         return ""
-    conteudo = f'<div class="banner-card" style="height:{altura}px"><img src="{imagem}" alt="banner"></div>'
+    conteudo = f'<div class="banner-card"><img src="{imagem}" alt="banner"></div>'
     if link:
         return f'<a href="{link}" target="_blank" rel="noopener">{conteudo}</a>'
     return conteudo
