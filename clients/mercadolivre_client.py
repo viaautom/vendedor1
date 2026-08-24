@@ -1,6 +1,7 @@
 import requests
 
 from config import MIN_DISCOUNT_PERCENT
+from storage import gerar_id_curto
 
 
 def _parse_price(value):
@@ -46,14 +47,16 @@ def buscar_ofertas(keyword: str, limite: int = 10, min_discount_percent: int = N
         if desconto_percent < limite_desconto:
             continue
 
+        nome = item.get("title", "")
+        link = item.get("permalink", "")
         ofertas.append(
             {
-                "id": f"mercadolivre_{item.get('id', keyword)}",
+                "id": gerar_id_curto(nome, link, "ML"),
                 "fonte": "Mercado Livre",
-                "nome": item.get("title", ""),
+                "nome": nome,
                 "preco": preco_atual,
                 "desconto_percent": desconto_percent,
-                "link_afiliado": item.get("permalink", ""),
+                "link_afiliado": link,
                 "imagem_url": item.get("thumbnail", ""),
             }
         )

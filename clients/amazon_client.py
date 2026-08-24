@@ -12,6 +12,7 @@ muito tempo sem vender, as credenciais podem parar de funcionar.
 """
 from amazon_paapi import AmazonApi
 
+from storage import gerar_id_curto
 from config import (
     AMAZON_ACCESS_KEY,
     AMAZON_SECRET_KEY,
@@ -64,14 +65,16 @@ def buscar_ofertas(keyword: str, limite: int = 10, min_discount_percent: int = N
         if desconto_percent < limite_desconto:
             continue
 
+        nome = item.item_info.title.display_value
+        link = item.detail_page_url
         ofertas.append(
             {
-                "id": f"amazon_{item.asin}",
+                "id": gerar_id_curto(nome, link, "AMZ"),
                 "fonte": "Amazon",
-                "nome": item.item_info.title.display_value,
+                "nome": nome,
                 "preco": preco_atual,
                 "desconto_percent": desconto_percent,
-                "link_afiliado": item.detail_page_url,
+                "link_afiliado": link,
                 "imagem_url": getattr(
                     getattr(item.images.primary, "large", None), "url", ""
                 ),

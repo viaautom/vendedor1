@@ -2,10 +2,29 @@
 Persistência do sistema: deduplicação de posts, repositório de ofertas
 encontradas, configurações editáveis pelo painel e links da linktree.
 """
+import hashlib
+import re
 import sqlite3
+import unicodedata
 from datetime import datetime, timedelta
 
 from config import DATABASE_PATH
+
+
+def gerar_id_curto(nome: str, link: str = "", prefix: str = "P") -> str:
+    """Gera um ID curto, sem espaços e estável para o produto.
+    Exemplo: PWHEYC72414.
+    """
+    texto = (nome or "produto").strip()
+    if not texto:
+        texto = (link or "produto").strip()
+    texto_normalizado = unicodedata.normalize("NFKD", texto)
+    texto_normalizado = texto_normalizado.encode("ascii", "ignore").decode("ascii")
+    texto_normalizado = re.sub(r"[^a-zA-Z0-9]+", "", texto_normalizado).lower()
+    slug = texto_normalizado[:8] if texto_normalizado else "produto"
+    slug = slug or "produto"
+    hash_parte = hashlib.md5(f"{nome}|{link}".encode("utf-8")).hexdigest()[:6].upper()
+    return f"{prefix}{slug[:8]}{hash_parte}"
 
 
 def _connect():

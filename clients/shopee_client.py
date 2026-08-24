@@ -14,6 +14,7 @@ import time
 import requests
 
 from config import SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, MIN_DISCOUNT_PERCENT
+from storage import gerar_id_curto
 
 GRAPHQL_ENDPOINT = "https://open-api.affiliate.shopee.com.br/graphql"
 
@@ -83,14 +84,16 @@ def buscar_ofertas(keyword: str, limite: int = 20, min_discount_percent: int = N
         desconto = item.get("priceDiscountRate", 0)
         if desconto is None or desconto < limite_desconto:
             continue
+        nome = item.get("productName", "")
+        link = item.get("offerLink", "")
         ofertas.append(
             {
-                "id": f"shopee_{item['itemId']}",
+                "id": gerar_id_curto(nome, link, "SP"),
                 "fonte": "Shopee",
-                "nome": item.get("productName", ""),
+                "nome": nome,
                 "preco": item.get("price"),
                 "desconto_percent": desconto,
-                "link_afiliado": item.get("offerLink", ""),
+                "link_afiliado": link,
                 "imagem_url": item.get("imageUrl", ""),
             }
         )

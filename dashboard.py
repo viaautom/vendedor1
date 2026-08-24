@@ -90,8 +90,9 @@ def buscar_e_persistir(cfg: dict):
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
 
 
-def id_manual(link: str) -> str:
-    return "manual_" + hashlib.md5(link.strip().encode("utf-8")).hexdigest()[:12]
+def id_manual(link: str, nome: str = "") -> str:
+    nome = nome or nome_a_partir_do_link(link)
+    return storage.gerar_id_curto(nome, link, "M")
 
 
 def nome_a_partir_do_link(link: str) -> str:
@@ -179,9 +180,26 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
             render_offer_edit_form(oferta, cfg)
             return
 
-        col_img, col_info, col_tg, col_wa, col_conf, col_grp, col_edit, col_del = st.columns(
-            [1, 5, 1, 1, 1, 1, 1, 1]
+        st.session_state.setdefault("selected_ids", [])
+        selected_ids = st.session_state["selected_ids"]
+        selecionado = oferta["id"] in selected_ids
+
+        col_sel, col_img, col_info, col_tg, col_wa, col_conf, col_grp, col_edit, col_del = st.columns(
+            [0.7, 1, 5, 1, 1, 1, 1, 1, 1]
         )
+        with col_sel:
+            novo_valor = st.checkbox(
+                "",
+                value=selecionado,
+                key=f"sel_{oferta['id']}",
+                help=f"Selecionar produto {oferta['id']}",
+            )
+            if novo_valor and oferta["id"] not in selected_ids:
+                selected_ids.append(oferta["id"])
+            if not novo_valor and oferta["id"] in selected_ids:
+                selected_ids.remove(oferta["id"])
+            st.session_state["selected_ids"] = selected_ids
+
         with col_img:
             st.markdown(ui.thumb_html(oferta.get("imagem_url", "")), unsafe_allow_html=True)
         with col_info:
@@ -189,9 +207,10 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
             nome = estrela + html.escape(str(oferta.get("nome", "Oferta")))
             desconto = oferta.get("desconto_percent", 0)
             desconto_txt = f" · -{desconto}%" if desconto else ""
+            id_produto = html.escape(str(oferta.get("id", "")))
             st.markdown(
                 f'<div class="offer-row-title">{nome}</div>'
-                f'<div class="offer-row-meta">R$ {float(oferta.get("preco", 0) or 0):.2f}'
+                f'<div class="offer-row-meta">🆔 {id_produto} · R$ {float(oferta.get("preco", 0) or 0):.2f}'
                 f"{desconto_txt} · 🏷️ {html.escape(str(oferta.get('keyword') or '—'))} · "
                 f'🕓 {formatar_data(oferta.get("ultima_vez_em"))} · '
                 f'{"🟢 disponível" if oferta.get("disponivel") else "🔴 esgotado"}</div>',
@@ -269,12 +288,13 @@ def adicionar_links_em_lote(links: list[str], nicho: str, imagens: list = None) 
         except Exception:
             dados = {}
         imagem_upload = arquivo_para_data_uri(imagens[indice]) if indice < len(imagens) else ""
+        nome_produto = dados.get("nome") or nome_a_partir_do_link(link)
         storage.registrar_oferta(
             {
-                "id": id_manual(link),
+                "id": id_manual(link, nome_produto),
                 "fonte": "Manual",
                 "keyword": nicho,
-                "nome": dados.get("nome") or nome_a_partir_do_link(link),
+                "nome": nome_produto,
                 "preco": dados.get("preco") or 0.0,
                 "desconto_percent": int(dados.get("desconto_percent") or 0),
                 "link_afiliado": link,
@@ -363,6 +383,36 @@ def view_ofertas(cfg: dict):
         mostrar_todas = st.toggle("Mostrar esgotados", value=True)
     with col_f3:
         busca_texto = st.text_input("Buscar por nome")
+
+    st.session_state.setdefault("selected_ids", [])
+    selected_ids = st.session_state["selected_ids"]
+    if selected_ids:
+        ids_formatados = "#" + "-".join(selected_ids)
+        st.caption("IDs selecionados")
+        st.code(ids_formatados, language="text")
+        c_copy, c_clear = st.columns([1, 1])
+        with c_copy:
+            st.components.v1.html(
+                f"""
+                <script>
+                function copyText() {{
+                    const text = {ids_formatados!r};
+                    navigator.clipboard.writeText(text).then(() => {{
+                        const btn = document.getElementById('copy-btn');
+                        if (btn) btn.innerText = 'Copiado!';
+                    }}).catch(() => {{
+                        alert('Copie manualmente:\n' + text);
+                    }});
+                }}
+                </script>
+                <button id='copy-btn' onclick='copyText()' style='padding:8px 14px; border-radius:8px; cursor:pointer;'>Copiar IDs</button>
+                """,
+                height=60,
+            )
+        with c_clear:
+            if st.button("Limpar seleção", use_container_width=True):
+                st.session_state["selected_ids"] = []
+                st.rerun()
 
     ofertas = todas if mostrar_todas else disponiveis
     if nicho_filtro != "Todos":
