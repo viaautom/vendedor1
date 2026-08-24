@@ -5,26 +5,68 @@ encontradas, configurações editáveis pelo painel e links da linktree.
 import hashlib
 import re
 import sqlite3
-import unicodedata
 from datetime import datetime, timedelta
 
 from config import DATABASE_PATH
 
 
+_PADRAO_ID_PRODUTO = re.compile(r"^[A-Z]{3}\d{3}$")
+_TOTAL_IDS_PRODUTOS = 26**3 * 1000
+
+
 def gerar_id_curto(nome: str, link: str = "", prefix: str = "P") -> str:
-    """Gera um ID curto, sem espaços e estável para o produto.
-    Exemplo: PWHEYC72414.
+    """Reserva um ID no formato AAA000, sem usar o nome no resultado.
+
+    A reserva fica no SQLite para que o mesmo ID nunca seja entregue a dois
+    produtos, inclusive quando dois cadastros acontecem quase ao mesmo tempo.
     """
-    texto = (nome or "produto").strip()
-    if not texto:
-        texto = (link or "produto").strip()
-    texto_normalizado = unicodedata.normalize("NFKD", texto)
-    texto_normalizado = texto_normalizado.encode("ascii", "ignore").decode("ascii")
-    texto_normalizado = re.sub(r"[^a-zA-Z0-9]+", "", texto_normalizado).lower()
-    slug = texto_normalizado[:8] if texto_normalizado else "produto"
-    slug = slug or "produto"
-    hash_parte = hashlib.md5(f"{nome}|{link}".encode("utf-8")).hexdigest()[:6].upper()
-    return f"{prefix}{slug[:8]}{hash_parte}"
+    chave = (link or nome or "produto").strip()
+    conn = _connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        existente = conn.execute(
+            "SELECT id FROM ids_produtos WHERE chave = ?", (chave,)
+        ).fetchone()
+        if existente and _PADRAO_ID_PRODUTO.fullmatch(existente[0]):
+            return existente[0]
+
+        inicio = int.from_bytes(
+            hashlib.sha256(chave.encode("utf-8")).digest()[:4], "big"
+        ) % _TOTAL_IDS_PRODUTOS
+        for deslocamento in range(_TOTAL_IDS_PRODUTOS):
+            numero = (inicio + deslocamento) % _TOTAL_IDS_PRODUTOS
+            letras_numero, digitos = divmod(numero, 1000)
+            letras = ""
+            for _ in range(3):
+                letras = chr(65 + letras_numero % 26) + letras
+                letras_numero //= 26
+            candidato = f"{letras}{digitos:03d}"
+            try:
+                if existente:
+                    id_antigo = existente[0]
+                    conn.execute(
+                        "UPDATE ids_produtos SET id = ? WHERE chave = ?",
+                        (candidato, chave),
+                    )
+                    for tabela in ("ofertas_encontradas", "ofertas_postadas", "envios_log"):
+                        conn.execute(
+                            f"UPDATE {tabela} SET id = ? WHERE id = ?"
+                            if tabela != "envios_log"
+                            else "UPDATE envios_log SET oferta_id = ? WHERE oferta_id = ?",
+                            (candidato, id_antigo),
+                        )
+                else:
+                    conn.execute(
+                        "INSERT INTO ids_produtos (id, chave) VALUES (?, ?)",
+                        (candidato, chave),
+                    )
+                conn.commit()
+                return candidato
+            except sqlite3.IntegrityError:
+                continue
+        raise RuntimeError("Limite de 17.576.000 IDs de produtos atingido.")
+    finally:
+        conn.close()
 
 
 def _connect():
@@ -55,6 +97,14 @@ def _connect():
             enviado_telegram INTEGER DEFAULT 0,
             enviado_whatsapp INTEGER DEFAULT 0,
             disponivel INTEGER DEFAULT 1
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ids_produtos (
+            id TEXT PRIMARY KEY,
+            chave TEXT UNIQUE NOT NULL
         )
         """
     )

@@ -279,15 +279,35 @@ def arquivo_para_data_uri(arquivo) -> str:
     return f"data:{mime};base64,{base64.b64encode(dados).decode('ascii')}"
 
 
-def adicionar_links_em_lote(links: list[str], nicho: str, imagens: list = None) -> int:
+def _preco_valido(valor: str) -> bool:
+    try:
+        return float(valor.replace(",", ".")) > 0
+    except (AttributeError, ValueError):
+        return False
+
+
+def adicionar_links_em_lote(
+    links: list[str],
+    nicho: str,
+    imagens: list = None,
+    imagens_urls: list[str] = None,
+    precos: list[str] = None,
+) -> int:
     adicionadas = 0
     imagens = imagens or []
+    imagens_urls = imagens_urls or []
+    precos = precos or []
     for indice, link in enumerate(links):
         try:
             dados = scraper.extrair_dados_produto(link)
         except Exception:
             dados = {}
         imagem_upload = arquivo_para_data_uri(imagens[indice]) if indice < len(imagens) else ""
+        imagem_url = imagens_urls[indice] if indice < len(imagens_urls) else ""
+        try:
+            preco_informado = float(precos[indice].replace(",", ".")) if indice < len(precos) and precos[indice] else 0.0
+        except ValueError:
+            preco_informado = 0.0
         nome_produto = dados.get("nome") or nome_a_partir_do_link(link)
         storage.registrar_oferta(
             {
@@ -295,10 +315,10 @@ def adicionar_links_em_lote(links: list[str], nicho: str, imagens: list = None) 
                 "fonte": "Manual",
                 "keyword": nicho,
                 "nome": nome_produto,
-                "preco": dados.get("preco") or 0.0,
-                "desconto_percent": int(dados.get("desconto_percent") or 0),
+                "preco": preco_informado,
+                "desconto_percent": 0,
                 "link_afiliado": link,
-                "imagem_url": imagem_upload or dados.get("imagem_url") or "",
+                "imagem_url": imagem_upload or imagem_url or "",
             }
         )
         adicionadas += 1
@@ -352,15 +372,25 @@ def view_ofertas(cfg: dict):
         else:
             st.caption(
                 "Cole um link ou vários (um por linha) e escolha o nicho — vale pro "
-                "lote inteiro. Nome, preço, imagem e percentual de desconto são "
-                "buscados automaticamente da página; quando o site não permite, os "
-                "campos ficam em branco e dá pra corrigir depois."
+                "lote inteiro. Informe preço e imagem (URL ou upload) na mesma ordem "
+                "dos links. O nome será obtido automaticamente e o desconto pode ser "
+                "preenchido depois na edição."
             )
             with st.form("form_manual", clear_on_submit=True):
                 links_texto = st.text_area("Link(s) do produto (um por linha) *", height=100)
                 nicho_lote = st.selectbox("Nicho (aplicado a todos os links deste lote) *", options=cfg["nichos"])
+                precos_texto = st.text_area(
+                    "Preço(s) (um por linha, na mesma ordem dos links) *",
+                    height=68,
+                    placeholder="Ex.: 49,90\n79,90",
+                )
+                imagens_urls_texto = st.text_area(
+                    "URL(s) da imagem (uma por linha, opcional)",
+                    height=68,
+                    placeholder="Deixe vazio na linha se for enviar um arquivo",
+                )
                 imagens_upload = st.file_uploader(
-                    "Imagem do produto (opcional; um por link)",
+                    "Ou envie imagem(ns) (uma por link)",
                     type=["png", "jpg", "jpeg", "webp"],
                     accept_multiple_files=True,
                     help="Se você enviar várias imagens, elas serão usadas na mesma ordem dos links.",
@@ -370,10 +400,31 @@ def view_ofertas(cfg: dict):
                     if not links:
                         st.warning("Cole ao menos um link.")
                     else:
-                        with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
-                            adicionadas = adicionar_links_em_lote(links, nicho_lote, imagens_upload or [])
-                        st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
-                        st.rerun()
+                        precos = [linha.strip() for linha in precos_texto.split("\n")]
+                        imagens_urls = [linha.strip() for linha in imagens_urls_texto.split("\n")]
+                        precos_validos = len(precos) >= len(links) and all(
+                            linha and _preco_valido(linha) for linha in precos[: len(links)]
+                        )
+                        imagens_validas = len(imagens_upload or []) >= len(links) or all(
+                            (indice < len(imagens_upload or []) and imagens_upload[indice])
+                            or (indice < len(imagens_urls) and imagens_urls[indice])
+                            for indice in range(len(links))
+                        )
+                        if not precos_validos:
+                            st.warning("Informe um preço válido para cada link, na mesma ordem.")
+                        elif not imagens_validas:
+                            st.warning("Informe uma URL ou envie uma imagem para cada link.")
+                        else:
+                            with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
+                                adicionadas = adicionar_links_em_lote(
+                                    links,
+                                    nicho_lote,
+                                    imagens_upload or [],
+                                    imagens_urls,
+                                    precos,
+                                )
+                            st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
+                            st.rerun()
 
     st.markdown('<div class="section-title">Ofertas no repositório</div>', unsafe_allow_html=True)
     col_f1, col_f2, col_f3 = st.columns([2, 2, 3])
@@ -535,7 +586,7 @@ def view_vitrine():
             st.rerun()
 
     st.markdown('<div class="section-title">Banners (topo da vitrine)</div>', unsafe_allow_html=True)
-    st.caption("Aparecem no topo de /site, antes das ofertas. Cole a URL de uma imagem já hospedada.")
+    st.caption("Aparecem no topo de /site, antes das ofertas. Use uma URL ou envie uma imagem.")
 
     banners_salvos = storage.listar_banners()
     if "vitrine_banners_edit" not in st.session_state:
@@ -547,10 +598,18 @@ def view_vitrine():
         editados = []
         for idx, banner in enumerate(st.session_state["vitrine_banners_edit"]):
             c1, c2, c3 = st.columns([4, 4, 1])
-            imagem_url = c1.text_input("URL da imagem", value=banner.get("imagem_url", ""), key=f"bn_img_{idx}")
+            imagem_salva = banner.get("imagem_url", "")
+            url_inicial = "" if imagem_salva.startswith("data:image/") else imagem_salva
+            imagem_url = c1.text_input("URL da imagem", value=url_inicial, key=f"bn_img_{idx}")
+            imagem_upload = c1.file_uploader(
+                "Ou envie uma imagem",
+                type=["png", "jpg", "jpeg", "webp"],
+                key=f"bn_upload_{idx}",
+            )
+            imagem = arquivo_para_data_uri(imagem_upload) or imagem_url or imagem_salva
             link_url = c2.text_input("Link ao clicar", value=banner.get("link_url", ""), key=f"bn_link_{idx}")
             ativo = c3.checkbox("Ativo", value=bool(banner.get("ativo", True)), key=f"bn_ativo_{idx}")
-            editados.append({"imagem_url": imagem_url, "link_url": link_url, "ativo": ativo})
+            editados.append({"imagem_url": imagem, "link_url": link_url, "ativo": ativo})
 
         col_add, col_save = st.columns(2)
         adicionar = col_add.form_submit_button("➕ Adicionar banner")
