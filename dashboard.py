@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import html
 import re
@@ -136,6 +137,13 @@ def render_offer_edit_form(oferta: dict, cfg: dict):
         indice = opcoes_nicho.index(nicho_atual) if nicho_atual in opcoes_nicho else 0
         nicho = st.selectbox("Nicho", options=opcoes_nicho or ["geral"], index=indice)
         imagem_url = st.text_input("URL da imagem", value=oferta.get("imagem_url", ""))
+        imagem_upload = st.file_uploader(
+            "Upload de imagem do produto (opcional)",
+            type=["png", "jpg", "jpeg", "webp"],
+            help="Faz upload da imagem para usar no cadastro e na vitrine do site.",
+        )
+        if imagem_upload is not None:
+            imagem_url = arquivo_para_data_uri(imagem_upload)
         link = st.text_input("Link", value=oferta.get("link_afiliado", ""))
         destaque = st.checkbox(
             "⭐ Produto em destaque (aparece em destaque no topo da vitrine)",
@@ -239,13 +247,28 @@ def render_offer_list(ofertas: list[dict], cfg: dict):
         render_offer_row(oferta, grupos, cfg)
 
 
-def adicionar_links_em_lote(links: list[str], nicho: str) -> int:
+def arquivo_para_data_uri(arquivo) -> str:
+    if arquivo is None:
+        return ""
+    try:
+        dados = arquivo.getvalue() or b""
+    except Exception:
+        return ""
+    if not dados:
+        return ""
+    mime = getattr(arquivo, "type", "") or "image/png"
+    return f"data:{mime};base64,{base64.b64encode(dados).decode('ascii')}"
+
+
+def adicionar_links_em_lote(links: list[str], nicho: str, imagens: list = None) -> int:
     adicionadas = 0
-    for link in links:
+    imagens = imagens or []
+    for indice, link in enumerate(links):
         try:
             dados = scraper.extrair_dados_produto(link)
         except Exception:
             dados = {}
+        imagem_upload = arquivo_para_data_uri(imagens[indice]) if indice < len(imagens) else ""
         storage.registrar_oferta(
             {
                 "id": id_manual(link),
@@ -253,9 +276,9 @@ def adicionar_links_em_lote(links: list[str], nicho: str) -> int:
                 "keyword": nicho,
                 "nome": dados.get("nome") or nome_a_partir_do_link(link),
                 "preco": dados.get("preco") or 0.0,
-                "desconto_percent": 0,
+                "desconto_percent": int(dados.get("desconto_percent") or 0),
                 "link_afiliado": link,
-                "imagem_url": dados.get("imagem_url") or "",
+                "imagem_url": imagem_upload or dados.get("imagem_url") or "",
             }
         )
         adicionadas += 1
@@ -309,20 +332,26 @@ def view_ofertas(cfg: dict):
         else:
             st.caption(
                 "Cole um link ou vários (um por linha) e escolha o nicho — vale pro "
-                "lote inteiro. Nome, preço e imagem são buscados automaticamente da "
-                "página; quando o site não permite, ficam em branco e dá pra corrigir "
-                "excluindo e recadastrando."
+                "lote inteiro. Nome, preço, imagem e percentual de desconto são "
+                "buscados automaticamente da página; quando o site não permite, os "
+                "campos ficam em branco e dá pra corrigir depois."
             )
             with st.form("form_manual", clear_on_submit=True):
                 links_texto = st.text_area("Link(s) do produto (um por linha) *", height=100)
                 nicho_lote = st.selectbox("Nicho (aplicado a todos os links deste lote) *", options=cfg["nichos"])
+                imagens_upload = st.file_uploader(
+                    "Imagem do produto (opcional; um por link)",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    accept_multiple_files=True,
+                    help="Se você enviar várias imagens, elas serão usadas na mesma ordem dos links.",
+                )
                 if st.form_submit_button("Adicionar ao repositório"):
                     links = [linha.strip() for linha in links_texto.split("\n") if linha.strip()]
                     if not links:
                         st.warning("Cole ao menos um link.")
                     else:
                         with st.spinner(f"Buscando dados de {len(links)} link(s)..."):
-                            adicionadas = adicionar_links_em_lote(links, nicho_lote)
+                            adicionadas = adicionar_links_em_lote(links, nicho_lote, imagens_upload or [])
                         st.success(f"{adicionadas} oferta(s) adicionada(s) ao nicho '{nicho_lote}'.")
                         st.rerun()
 

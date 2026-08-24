@@ -269,9 +269,11 @@ def status_tag(label: str, ok: bool) -> str:
 
 def safe_url(url: str) -> str:
     url = (url or "").strip()
-    if not url.startswith(("http://", "https://")):
+    if not url:
         return ""
-    return url.replace("'", "%27")
+    if url.startswith(("http://", "https://", "data:image/", "file://")):
+        return url.replace("'", "%27")
+    return ""
 
 
 def oferta_card_inner_html(oferta: dict) -> str:
