@@ -390,29 +390,10 @@ def view_ofertas(cfg: dict):
         ids_formatados = "#" + "-".join(selected_ids)
         st.caption("IDs selecionados")
         st.code(ids_formatados, language="text")
-        c_copy, c_clear = st.columns([1, 1])
-        with c_copy:
-            st.components.v1.html(
-                f"""
-                <script>
-                function copyText() {{
-                    const text = {ids_formatados!r};
-                    navigator.clipboard.writeText(text).then(() => {{
-                        const btn = document.getElementById('copy-btn');
-                        if (btn) btn.innerText = 'Copiado!';
-                    }}).catch(() => {{
-                        alert('Copie manualmente:\n' + text);
-                    }});
-                }}
-                </script>
-                <button id='copy-btn' onclick='copyText()' style='padding:8px 14px; border-radius:8px; cursor:pointer;'>Copiar IDs</button>
-                """,
-                height=60,
-            )
-        with c_clear:
-            if st.button("Limpar seleção", use_container_width=True):
-                st.session_state["selected_ids"] = []
-                st.rerun()
+        st.caption("Use o ícone de copiar no bloco acima para copiar os IDs.")
+        if st.button("Limpar seleção", use_container_width=True):
+            st.session_state["selected_ids"] = []
+            st.rerun()
 
     ofertas = todas if mostrar_todas else disponiveis
     if nicho_filtro != "Todos":
