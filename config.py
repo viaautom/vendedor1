@@ -39,7 +39,7 @@ KEYWORDS = [
 ]
 
 # --- Execução ---
-CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "6"))
+CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "1"))
 DATABASE_PATH = os.getenv("DATABASE_PATH", "ofertas.db")
 
 # --- Painel administrativo ---

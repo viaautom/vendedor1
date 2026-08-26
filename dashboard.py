@@ -89,12 +89,12 @@ def buscar_e_persistir(cfg: dict) -> int:
 
             for oferta in ofertas:
                 oferta["keyword"] = palavra
+            ids_vistos = {oferta["id"] for oferta in ofertas}
             ofertas = settings.filtrar_por_preco(ofertas, cfg)
 
             for oferta in ofertas:
                 storage.registrar_oferta(oferta)
                 total_salvas += 1
-            ids_vistos = {oferta["id"] for oferta in ofertas}
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
     return total_salvas
 

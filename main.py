@@ -14,6 +14,7 @@ import time
 import logging
 
 from clients import shopee_client, amazon_client
+import config
 import settings
 import storage
 import telegram_poster
@@ -32,9 +33,12 @@ def ciclo_de_busca():
     storage.limpar_antigas(dias=30)
 
     novas_ofertas = []
+    clientes = [(shopee_client, "Shopee")]
+    if config.AMAZON_ACCESS_KEY and config.AMAZON_SECRET_KEY and config.AMAZON_PARTNER_TAG:
+        clientes.append((amazon_client, "Amazon"))
 
     for palavra in cfg["keywords"]:
-        for cliente, fonte in ((shopee_client, "Shopee"), (amazon_client, "Amazon")):
+        for cliente, fonte in clientes:
             try:
                 ofertas = cliente.buscar_ofertas(
                     palavra, min_discount_percent=cfg["min_discount_percent"]
@@ -45,13 +49,13 @@ def ciclo_de_busca():
 
             for oferta in ofertas:
                 oferta["keyword"] = palavra
+            ids_vistos = {oferta["id"] for oferta in ofertas}
             ofertas = settings.filtrar_por_preco(ofertas, cfg)
 
             for oferta in ofertas:
                 storage.registrar_oferta(oferta)
             novas_ofertas.extend(ofertas)
 
-            ids_vistos = {oferta["id"] for oferta in ofertas}
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
 
     postadas = 0
