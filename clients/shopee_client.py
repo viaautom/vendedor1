@@ -86,12 +86,16 @@ def buscar_ofertas(keyword: str, limite: int = 20, min_discount_percent: int = N
             continue
         nome = item.get("productName", "")
         link = item.get("offerLink", "")
+        try:
+            preco = float(item.get("price") or 0)
+        except (TypeError, ValueError):
+            continue
         ofertas.append(
             {
                 "id": gerar_id_curto(nome, link, "SP"),
                 "fonte": "Shopee",
                 "nome": nome,
-                "preco": item.get("price"),
+                "preco": preco,
                 "desconto_percent": desconto,
                 "link_afiliado": link,
                 "imagem_url": item.get("imageUrl", ""),
