@@ -73,8 +73,12 @@ def teste_telegram():
 
 def buscar_e_persistir(cfg: dict) -> int:
     total_salvas = 0
+    clientes = [(shopee_client, "Shopee")]
+    if AMAZON_ACCESS_KEY and AMAZON_SECRET_KEY and AMAZON_PARTNER_TAG:
+        clientes.append((amazon_client, "Amazon"))
+
     for palavra in cfg["keywords"]:
-        for cliente, fonte in ((shopee_client, "Shopee"), (amazon_client, "Amazon")):
+        for cliente, fonte in clientes:
             try:
                 ofertas = cliente.buscar_ofertas(
                     palavra, min_discount_percent=cfg["min_discount_percent"]
