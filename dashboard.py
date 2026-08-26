@@ -71,7 +71,8 @@ def teste_telegram():
     return telegram_poster.postar_oferta(oferta_teste)
 
 
-def buscar_e_persistir(cfg: dict):
+def buscar_e_persistir(cfg: dict) -> int:
+    total_salvas = 0
     for palavra in cfg["keywords"]:
         for cliente, fonte in ((shopee_client, "Shopee"), (amazon_client, "Amazon")):
             try:
@@ -88,8 +89,10 @@ def buscar_e_persistir(cfg: dict):
 
             for oferta in ofertas:
                 storage.registrar_oferta(oferta)
+                total_salvas += 1
             ids_vistos = {oferta["id"] for oferta in ofertas}
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
+    return total_salvas
 
 
 def id_manual(link: str, nome: str = "") -> str:
@@ -358,7 +361,8 @@ def view_ofertas(cfg: dict):
     with row[0]:
         if st.button("🔎 Buscar ofertas agora", use_container_width=True):
             with st.spinner("Consultando Amazon e Shopee..."):
-                buscar_e_persistir(cfg)
+                total_salvas = buscar_e_persistir(cfg)
+            st.session_state["busca_resultado"] = total_salvas
             st.rerun()
     with row[1]:
         if st.button("📨 Testar Telegram", use_container_width=True):
