@@ -198,10 +198,11 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
         )
         with col_sel:
             novo_valor = st.checkbox(
-                "",
+                f"Selecionar {oferta['id']}",
                 value=selecionado,
                 key=f"sel_{oferta['id']}",
                 help=f"Selecionar produto {oferta['id']}",
+                label_visibility="collapsed",
             )
             if novo_valor and oferta["id"] not in selected_ids:
                 selected_ids.append(oferta["id"])
