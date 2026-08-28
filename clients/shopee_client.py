@@ -73,6 +73,11 @@ def buscar_ofertas(keyword: str, limite: int = 20, min_discount_percent: int = N
     resp.raise_for_status()
     dados = resp.json()
 
+    erros = dados.get("errors") or []
+    if erros:
+        mensagens = "; ".join(str(erro.get("message", erro)) for erro in erros)
+        raise RuntimeError(f"Shopee GraphQL: {mensagens}")
+
     nodes = (
         dados.get("data", {})
         .get("productOfferV2", {})

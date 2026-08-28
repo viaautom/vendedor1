@@ -81,9 +81,7 @@ def buscar_e_persistir(cfg: dict) -> int:
     for palavra in cfg["keywords"]:
         for cliente, fonte in clientes:
             try:
-                ofertas = cliente.buscar_ofertas(
-                    palavra, min_discount_percent=cfg["min_discount_percent"]
-                )
+                ofertas = cliente.buscar_ofertas(palavra, min_discount_percent=0)
             except Exception as exc:
                 falhas.append(f"{fonte} ('{palavra}'): {exc}")
                 continue
@@ -110,7 +108,6 @@ def buscar_e_persistir(cfg: dict) -> int:
                 for oferta in ofertas:
                     oferta["keyword"] = palavra
                 ids_vistos = {oferta["id"] for oferta in ofertas}
-                ofertas = settings.filtrar_por_preco(ofertas, cfg)
                 for oferta in ofertas:
                     storage.registrar_oferta(oferta)
                     total_salvas += 1
