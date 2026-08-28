@@ -537,7 +537,6 @@ def view_configuracoes(cfg: dict):
             }
             settings.salvar_configuracoes(novas)
             st.success("Configurações salvas. O worker aplica o novo intervalo no próximo ciclo.")
-            st.rerun()
 
     st.markdown('<div class="section-title">Credenciais (via .env / Dokploy)</div>', unsafe_allow_html=True)
     st.caption("Essas não são editáveis por aqui — são segredos de infraestrutura.")
