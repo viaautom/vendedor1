@@ -403,6 +403,72 @@ def view_ofertas(cfg: dict):
             ok = teste_telegram()
             st.success("Mensagem de teste enviada.") if ok else st.error("Falha no teste do Telegram.")
 
+    with st.expander("🔎 Buscar ofertas manualmente na Shopee"):
+        col_busca, col_limite = st.columns([4, 1])
+        palavra_manual = col_busca.text_input(
+            "Palavra-chave",
+            value=cfg["keywords"][0] if cfg["keywords"] else "",
+            key="palavra_busca_manual",
+        )
+        limite_manual = col_limite.number_input(
+            "Limite", min_value=1, max_value=50, value=20, step=1, key="limite_busca_manual"
+        )
+        if st.button("Consultar API", key="consultar_api_manual", use_container_width=True):
+            if not palavra_manual.strip():
+                st.warning("Informe uma palavra-chave para buscar.")
+            else:
+                with st.spinner("Consultando ofertas na Shopee..."):
+                    try:
+                        resultados = shopee_client.buscar_ofertas(
+                            palavra_manual.strip(),
+                            limite=int(limite_manual),
+                            min_discount_percent=cfg["min_discount_percent"],
+                        )
+                        for resultado in resultados:
+                            resultado["keyword"] = palavra_manual.strip()
+                        st.session_state["ofertas_preview"] = resultados
+                        st.session_state["ofertas_preview_keyword"] = palavra_manual.strip()
+                        st.session_state.pop("ofertas_preview_erro", None)
+                    except Exception as exc:
+                        st.session_state["ofertas_preview"] = []
+                        st.session_state["ofertas_preview_erro"] = str(exc)
+                st.rerun()
+
+        erro_preview = st.session_state.get("ofertas_preview_erro")
+        if erro_preview:
+            st.error(f"Falha na consulta da Shopee: {erro_preview}")
+
+        resultados = st.session_state.get("ofertas_preview", [])
+        if resultados:
+            st.caption(
+                f"{len(resultados)} oferta(s) encontrada(s) para "
+                f"'{st.session_state.get('ofertas_preview_keyword', '')}'."
+            )
+            if st.button("➕ Adicionar todas ao repositório", key="adicionar_preview_todas", use_container_width=True):
+                for resultado in resultados:
+                    storage.registrar_oferta(resultado)
+                st.success(f"{len(resultados)} oferta(s) adicionada(s) ao repositório.")
+
+            for indice, resultado in enumerate(resultados):
+                col_info, col_link, col_adicionar = st.columns([6, 2, 2])
+                with col_info:
+                    desconto = resultado.get("desconto_percent", 0)
+                    st.markdown(
+                        f"**{html.escape(str(resultado.get('nome') or 'Oferta'))}**  \n"
+                        f"R$ {float(resultado.get('preco', 0) or 0):.2f} · "
+                        f"Desconto: {desconto}%",
+                    )
+                with col_link:
+                    st.link_button("Ver oferta", resultado.get("link_afiliado", ""), use_container_width=True)
+                with col_adicionar:
+                    if st.button(
+                        "Adicionar",
+                        key=f"adicionar_preview_{indice}_{resultado['id']}",
+                        use_container_width=True,
+                    ):
+                        storage.registrar_oferta(resultado)
+                        st.success("Adicionada.")
+
     with st.expander("➕ Adicionar link(s) — um ou vários, no mesmo nicho"):
         if not cfg["nichos"]:
             st.warning("Cadastre pelo menos um nicho antes de adicionar produtos.")
