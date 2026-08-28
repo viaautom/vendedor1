@@ -777,6 +777,11 @@ def main():
     ui.inject_css()
     ui.hero("🛒", "Painel Vendedor1", "Repositório de ofertas, configurações e linktree.")
 
+    col_atualizar, _ = st.columns([1, 5])
+    with col_atualizar:
+        if st.button("🔄 Atualizar página", use_container_width=True):
+            st.rerun()
+
     if "pagina_atual" not in st.session_state:
         st.session_state["pagina_atual"] = PAGINAS[0]
 
