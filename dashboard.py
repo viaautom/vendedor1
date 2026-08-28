@@ -403,7 +403,8 @@ def view_ofertas(cfg: dict):
             ok = teste_telegram()
             st.success("Mensagem de teste enviada.") if ok else st.error("Falha no teste do Telegram.")
 
-    with st.expander("🔎 Buscar ofertas manualmente na Shopee"):
+    with st.expander("🔎 Buscar produtos e ofertas na Shopee"):
+        st.caption("A busca inclui produtos sem desconto e ofertas retornadas pela Shopee.")
         col_busca, col_limite = st.columns([4, 1])
         palavra_manual = col_busca.text_input(
             "Palavra-chave",
@@ -422,7 +423,7 @@ def view_ofertas(cfg: dict):
                         resultados = shopee_client.buscar_ofertas(
                             palavra_manual.strip(),
                             limite=int(limite_manual),
-                            min_discount_percent=cfg["min_discount_percent"],
+                            min_discount_percent=0,
                         )
                         for resultado in resultados:
                             resultado["keyword"] = palavra_manual.strip()
