@@ -73,6 +73,7 @@ def teste_telegram():
 
 def buscar_e_persistir(cfg: dict) -> int:
     total_salvas = 0
+    falhas = []
     clientes = [(shopee_client, "Shopee")]
     if AMAZON_ACCESS_KEY and AMAZON_SECRET_KEY and AMAZON_PARTNER_TAG:
         clientes.append((amazon_client, "Amazon"))
@@ -84,7 +85,7 @@ def buscar_e_persistir(cfg: dict) -> int:
                     palavra, min_discount_percent=cfg["min_discount_percent"]
                 )
             except Exception as exc:
-                st.sidebar.warning(f"Falha em {fonte} ('{palavra}'): {exc}")
+                falhas.append(f"{fonte} ('{palavra}'): {exc}")
                 continue
 
             for oferta in ofertas:
@@ -96,6 +97,7 @@ def buscar_e_persistir(cfg: dict) -> int:
                 storage.registrar_oferta(oferta)
                 total_salvas += 1
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
+    st.session_state["busca_falhas"] = falhas
     return total_salvas
 
 
@@ -346,6 +348,11 @@ def view_ofertas(cfg: dict):
     col2.markdown(ui.stat_card("📭", "Não enviados", nao_enviados), unsafe_allow_html=True)
     col3.markdown(ui.stat_card("🟢", "Disponíveis", len(disponiveis)), unsafe_allow_html=True)
     col4.markdown(ui.stat_card("⏱️", "Intervalo", f"{cfg['check_interval_hours']}h"), unsafe_allow_html=True)
+
+    if "busca_resultado" in st.session_state:
+        st.success(f"Busca concluída: {st.session_state['busca_resultado']} oferta(s) gravada(s) no repositório.")
+        for falha in st.session_state.get("busca_falhas", []):
+            st.warning(f"Falha na busca: {falha}")
 
     with st.expander("📊 Ver total de links por nicho"):
         for linha in storage.contagem_por_nicho():
