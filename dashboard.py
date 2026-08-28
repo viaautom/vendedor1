@@ -97,6 +97,28 @@ def buscar_e_persistir(cfg: dict) -> int:
                 storage.registrar_oferta(oferta)
                 total_salvas += 1
             storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
+
+    if total_salvas < 5:
+        for palavra in cfg["keywords"]:
+            for cliente, fonte in clientes:
+                try:
+                    ofertas = cliente.buscar_ofertas(palavra, min_discount_percent=0)
+                except Exception as exc:
+                    falhas.append(f"{fonte} ('{palavra}', fallback): {exc}")
+                    continue
+
+                for oferta in ofertas:
+                    oferta["keyword"] = palavra
+                ids_vistos = {oferta["id"] for oferta in ofertas}
+                ofertas = settings.filtrar_por_preco(ofertas, cfg)
+                for oferta in ofertas:
+                    storage.registrar_oferta(oferta)
+                    total_salvas += 1
+                storage.marcar_indisponiveis(palavra, fonte, ids_vistos)
+                if total_salvas >= 5:
+                    break
+            if total_salvas >= 5:
+                break
     st.session_state["busca_falhas"] = falhas
     return total_salvas
 
