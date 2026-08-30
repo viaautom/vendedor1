@@ -853,7 +853,7 @@ def view_video():
                 st.rerun()
 
 
-def view_grupos():
+def view_grupos(cfg: dict):
     st_status = whatsapp_client.status()
     conectado = st_status.get("connected", False)
 
@@ -897,6 +897,22 @@ def view_grupos():
         if st.form_submit_button("💾 Salvar grupos"):
             storage.salvar_grupos(selecionados)
             st.success("Grupos salvos.")
+            st.rerun()
+
+    st.write("---")
+    st.markdown('<div class="section-title">Configurações de Envio Automático</div>', unsafe_allow_html=True)
+    with st.form("form_config_wa"):
+        ativo = st.toggle("Ativar envio automático de novas ofertas para os grupos", value=cfg.get("wa_grupos_ativo", True))
+        limite = st.number_input(
+            "Limite máximo de ofertas por dia", 
+            min_value=1, max_value=1000, 
+            value=cfg.get("wa_grupos_limite_diario", 10)
+        )
+        if st.form_submit_button("💾 Salvar configurações de envio"):
+            cfg["wa_grupos_ativo"] = ativo
+            cfg["wa_grupos_limite_diario"] = int(limite)
+            settings.salvar_configuracoes(cfg)
+            st.success("Configurações de envio salvas.")
             st.rerun()
 
 
@@ -946,7 +962,7 @@ def main():
     elif pagina == "🛍️ Vitrine":
         view_vitrine()
     elif pagina == "📲 Grupos":
-        view_grupos()
+        view_grupos(cfg)
     else:
         view_video()
 

@@ -7,8 +7,8 @@ import config
 import storage
 
 _CHAVES_LISTA = {"keywords", "nichos"}
-_CHAVES_BOOL = {"min_price_aplica"}
-_CHAVES_INT = {"min_discount_percent", "check_interval_hours"}
+_CHAVES_BOOL = {"min_price_aplica", "wa_grupos_ativo"}
+_CHAVES_INT = {"min_discount_percent", "check_interval_hours", "wa_grupos_limite_diario"}
 _CHAVES_FLOAT = {"min_price", "max_price"}
 
 
@@ -24,6 +24,8 @@ def _defaults() -> dict:
         "min_price_aplica": True,
         "max_price": config.MAX_PRICE,
         "check_interval_hours": config.CHECK_INTERVAL_HOURS,
+        "wa_grupos_ativo": True,
+        "wa_grupos_limite_diario": 10,
     }
 
 
@@ -57,6 +59,8 @@ def salvar_configuracoes(cfg: dict):
         "min_price_aplica": "1" if cfg["min_price_aplica"] else "0",
         "max_price": str(float(cfg["max_price"])),
         "check_interval_hours": str(int(cfg["check_interval_hours"])),
+        "wa_grupos_ativo": "1" if cfg.get("wa_grupos_ativo", True) else "0",
+        "wa_grupos_limite_diario": str(int(cfg.get("wa_grupos_limite_diario", 10))),
     }
     storage.definir_config_kv(valores)
 

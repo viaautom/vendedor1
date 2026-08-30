@@ -76,20 +76,36 @@ def ciclo_de_busca():
     if grupos:
         if not whatsapp_client.status().get("connected"):
             logger.warning("whatsapp-service não está conectado — pulando envio aos grupos.")
+        elif not cfg.get("wa_grupos_ativo", True):
+            logger.info("Envio automático para grupos está desativado nas configurações.")
         else:
-            enviadas_grupo = 0
-            for oferta in novas_ofertas:
-                if storage.foi_enviada(oferta["id"], "whatsapp_grupo"):
-                    continue
-                texto = whatsapp_client.formatar_mensagem(oferta)
-                sucesso_algum = False
-                for grupo in grupos:
-                    if whatsapp_client.enviar_mensagem(grupo["jid"], texto):
-                        sucesso_algum = True
-                if sucesso_algum:
-                    storage.marcar_enviado(oferta["id"], "whatsapp_grupo")
-                    enviadas_grupo += 1
-            logger.info(f"{enviadas_grupo} oferta(s) enviada(s) aos grupos de WhatsApp.")
+            enviadas_hoje = storage.contagem_enviados_hoje().get("whatsapp_grupo", 0)
+            limite_diario = cfg.get("wa_grupos_limite_diario", 10)
+            restantes = max(0, limite_diario - enviadas_hoje)
+            
+            if restantes == 0:
+                logger.info(f"Limite diário de {limite_diario} ofertas para grupos já foi atingido hoje.")
+            else:
+                enviadas_neste_ciclo = 0
+                for oferta in novas_ofertas:
+                    if enviadas_neste_ciclo >= restantes:
+                        logger.info("Limite diário de ofertas atingido durante este ciclo.")
+                        break
+                        
+                    if storage.foi_enviada(oferta["id"], "whatsapp_grupo"):
+                        continue
+                        
+                    texto = whatsapp_client.formatar_mensagem(oferta)
+                    sucesso_algum = False
+                    for grupo in grupos:
+                        if whatsapp_client.enviar_mensagem(grupo["jid"], texto):
+                            sucesso_algum = True
+                            
+                    if sucesso_algum:
+                        storage.marcar_enviado(oferta["id"], "whatsapp_grupo")
+                        enviadas_neste_ciclo += 1
+                        
+                logger.info(f"{enviadas_neste_ciclo} oferta(s) enviada(s) aos grupos de WhatsApp neste ciclo.")
 
     return cfg["check_interval_hours"]
 
