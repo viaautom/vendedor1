@@ -436,36 +436,42 @@ def view_ofertas(cfg: dict):
         if erro_preview:
             st.error(f"Falha na consulta da Shopee: {erro_preview}")
 
-        resultados = st.session_state.get("ofertas_preview", [])
-        if resultados:
-            st.caption(
-                f"{len(resultados)} oferta(s) encontrada(s) para "
-                f"'{st.session_state.get('ofertas_preview_keyword', '')}'."
-            )
-            if st.button("➕ Adicionar todas ao repositório", key="adicionar_preview_todas", use_container_width=True):
-                for resultado in resultados:
-                    storage.registrar_oferta(resultado)
-                st.success(f"{len(resultados)} oferta(s) adicionada(s) ao repositório.")
-
-            for indice, resultado in enumerate(resultados):
-                col_info, col_link, col_adicionar = st.columns([6, 2, 2])
-                with col_info:
-                    desconto = resultado.get("desconto_percent", 0)
-                    st.markdown(
-                        f"**{html.escape(str(resultado.get('nome') or 'Oferta'))}**  \n"
-                        f"R$ {float(resultado.get('preco', 0) or 0):.2f} · "
-                        f"Desconto: {desconto}%",
-                    )
-                with col_link:
-                    st.link_button("Ver oferta", resultado.get("link_afiliado", ""), use_container_width=True)
-                with col_adicionar:
-                    if st.button(
-                        "Adicionar",
-                        key=f"adicionar_preview_{indice}_{resultado['id']}",
-                        use_container_width=True,
-                    ):
+        if "ofertas_preview" in st.session_state:
+            resultados = st.session_state["ofertas_preview"]
+            if resultados:
+                st.caption(
+                    f"{len(resultados)} oferta(s) encontrada(s) para "
+                    f"'{st.session_state.get('ofertas_preview_keyword', '')}'."
+                )
+                if st.button("➕ Adicionar todas ao repositório", key="adicionar_preview_todas", use_container_width=True):
+                    for resultado in resultados:
                         storage.registrar_oferta(resultado)
-                        st.success("Adicionada.")
+                    st.success(f"{len(resultados)} oferta(s) adicionada(s) ao repositório.")
+    
+                for indice, resultado in enumerate(resultados):
+                    col_info, col_link, col_adicionar = st.columns([6, 2, 2])
+                    with col_info:
+                        desconto = resultado.get("desconto_percent", 0)
+                        st.markdown(
+                            f"**{html.escape(str(resultado.get('nome') or 'Oferta'))}**  \n"
+                            f"R$ {float(resultado.get('preco', 0) or 0):.2f} · "
+                            f"Desconto: {desconto}%",
+                        )
+                    with col_link:
+                        st.link_button("Ver oferta", resultado.get("link_afiliado", ""), use_container_width=True)
+                    with col_adicionar:
+                        if st.button(
+                            "Adicionar",
+                            key=f"adicionar_preview_{indice}_{resultado['id']}",
+                            use_container_width=True,
+                        ):
+                            storage.registrar_oferta(resultado)
+                            st.success("Adicionada.")
+            elif not erro_preview:
+                st.info(
+                    f"Busca concluída: Nenhuma oferta encontrada na Shopee para "
+                    f"'{st.session_state.get('ofertas_preview_keyword', '')}' neste momento."
+                )
 
     with st.expander("➕ Adicionar link(s) — um ou vários, no mesmo nicho"):
         if not cfg["nichos"]:
@@ -559,9 +565,52 @@ def view_ofertas(cfg: dict):
 
     if ofertas:
         st.caption(f"{len(ofertas)} oferta(s)")
-        render_offer_list(ofertas, cfg)
+        
+        ITEMS_POR_PAGINA = 20
+        total_paginas = max(1, (len(ofertas) + ITEMS_POR_PAGINA - 1) // ITEMS_POR_PAGINA)
+        
+        if "pagina_ofertas" not in st.session_state:
+            st.session_state["pagina_ofertas"] = 0
+            
+        if st.session_state["pagina_ofertas"] >= total_paginas:
+            st.session_state["pagina_ofertas"] = total_paginas - 1
+            
+        pagina = st.session_state["pagina_ofertas"]
+        
+        if total_paginas > 1:
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c1:
+                if st.button("⬅️ Anterior", disabled=(pagina == 0), use_container_width=True, key="btn_prev_top"):
+                    st.session_state["pagina_ofertas"] -= 1
+                    st.rerun()
+            with c2:
+                st.markdown(f"<div style='text-align: center; padding-top: 8px;'>Página {pagina + 1} de {total_paginas}</div>", unsafe_allow_html=True)
+            with c3:
+                if st.button("Próxima ➡️", disabled=(pagina == total_paginas - 1), use_container_width=True, key="btn_next_top"):
+                    st.session_state["pagina_ofertas"] += 1
+                    st.rerun()
+            st.write("")
+            
+        inicio = pagina * ITEMS_POR_PAGINA
+        fim = inicio + ITEMS_POR_PAGINA
+        
+        render_offer_list(ofertas[inicio:fim], cfg)
+        
+        if total_paginas > 1:
+            st.write("")
+            c1_b, c2_b, c3_b = st.columns([1, 2, 1])
+            with c1_b:
+                if st.button("⬅️ Anterior", disabled=(pagina == 0), use_container_width=True, key="btn_prev_bot"):
+                    st.session_state["pagina_ofertas"] -= 1
+                    st.rerun()
+            with c2_b:
+                pass
+            with c3_b:
+                if st.button("Próxima ➡️", disabled=(pagina == total_paginas - 1), use_container_width=True, key="btn_next_bot"):
+                    st.session_state["pagina_ofertas"] += 1
+                    st.rerun()
     else:
-        st.info("Nenhuma oferta encontrada com esses filtros.")
+        st.info("Nenhuma oferta encontrada com os filtros atuais.")
 
 
 def view_configuracoes(cfg: dict):
