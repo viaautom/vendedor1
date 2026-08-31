@@ -171,18 +171,11 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
 
     return f"""
     <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; flex-wrap:wrap;">
-        <span style="
-            display:inline-flex; align-items:center; justify-content:center;
-            padding:0.28rem 0.62rem; min-height:1.9rem; border:1px solid #d9d0c2;
-            border-radius:999px; background:#f7f2ea; color:#111111; opacity:1;
-            font-size:0.73rem; font-weight:800; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
-            letter-spacing:0.03em; line-height:1; text-shadow:none; -webkit-text-fill-color:#111111;
-        ">{safe_label}</span>
         <a
             href="{safe_link}"
             target="_blank"
             rel="noopener noreferrer"
-            title="Abrir produto"
+            title="Abrir link do produto"
             style="
                 display:inline-flex; align-items:center; justify-content:center; text-decoration:none;
                 padding:0.36rem 0.76rem; border:1px solid #d8d5d0; border-radius:999px;
@@ -193,8 +186,9 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
         <button
             type="button"
             data-copy="{safe_link}"
+            title="Copiar link completo do produto"
             onclick="
-                const texto = this.dataset.copy || '';
+                const texto = this.dataset.copy || this.getAttribute('data-copy') || '';
                 const copiar = () => {{
                     if (navigator.clipboard && window.isSecureContext) {{
                         return navigator.clipboard.writeText(texto);
