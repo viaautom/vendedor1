@@ -13,28 +13,28 @@ import config
 MONO_FONT = "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
 
-def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffaf0") -> str:
+def base_css(accent: str = "#111827", accent2: str = "#d97706", bg: str = "#fffdf9") -> str:
     return f"""
     <style>
     :root {{
         --accent: {accent};
         --accent-2: {accent2};
-        --accent-soft: rgba(255, 77, 139, 0.12);
-        --ok: #22c55e;
-        --pending: #ef4444;
+        --accent-soft: rgba(148, 163, 184, 0.12);
+        --ok: #16a34a;
+        --pending: #dc2626;
         --bg: {bg};
-        --card-bg: #f5f0e0;
-        --card-alt: #faf5e8;
-        --card-border: #e5e5e5;
-        --text-muted: #6a6a6a;
-        --text: #0a0a0a;
+        --card-bg: #fffaf4;
+        --card-alt: #ffffff;
+        --card-border: #e7e0d5;
+        --text-muted: #5f6470;
+        --text: #18181b;
         --mono: {MONO_FONT};
-        --pink: #ff4d8b;
-        --teal: #1a3a3a;
-        --lavender: #b8a4ed;
-        --peach: #ffb084;
-        --ochre: #e8b94a;
-        --cream: #fffaf0;
+        --pink: #f59e0b;
+        --teal: #475569;
+        --lavender: #c4b5fd;
+        --peach: #fed7aa;
+        --ochre: #f59e0b;
+        --cream: #fffdf9;
     }}
 
     #MainMenu, footer, header {{visibility: hidden;}}
@@ -239,16 +239,37 @@ def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffa
 
     .stButton > button, .stLinkButton > a {{
         border-radius: 12px !important;
-        border: 1px solid transparent !important;
-        background: linear-gradient(180deg, #0a0a0a, #1f1f1f) !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
+        border: 1px solid #e7e0d5 !important;
+        background: linear-gradient(180deg, #ffffff, #f6f1ea) !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
         box-shadow: none !important;
     }}
     .stButton > button:hover, .stLinkButton > a:hover {{
-        background: linear-gradient(180deg, #1f1f1f, #0a0a0a) !important;
-        border-color: transparent !important;
+        background: linear-gradient(180deg, #fffdf9, #f1e9dd) !important;
+        border-color: #d9d0c2 !important;
         box-shadow: none !important;
+    }}
+
+    div[data-testid="stTextInput"] > div > div > input,
+    div[data-testid="stTextArea"] > div > div > textarea,
+    div[data-testid="stSelectbox"] > div > div > div,
+    div[data-testid="stNumberInput"] > div > div > input,
+    div[data-testid="stDateInput"] > div > div > input {{
+        background: #fffdfb !important;
+        color: #18181b !important;
+        border: 1px solid #e7e0d5 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+    }}
+
+    div[data-testid="stTextInput"] label,
+    div[data-testid="stTextArea"] label,
+    div[data-testid="stSelectbox"] label,
+    div[data-testid="stNumberInput"] label,
+    div[data-testid="stDateInput"] label {{
+        color: #2d3748 !important;
+        font-weight: 600 !important;
     }}
     </style>
     """

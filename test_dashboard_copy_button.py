@@ -11,9 +11,9 @@ assert hasattr(mod, "copiar_link_html"), "Função de cópia do link não encont
 html = mod.copiar_link_html("https://exemplo.com/produto/123")
 assert "navigator.clipboard" in html.lower() or "execcommand" in html.lower()
 assert "data-copy" in html.lower()
+assert "href=\"https://exemplo.com/produto/123\"" in html
 assert "link/" in html.lower()
 assert "copiar" in html.lower()
-assert "https://exemplo.com/produto/123" in html.lower()
-assert "</span>" in html
+assert "abrir" in html.lower()
 assert "https://exemplo.com/produto/123" not in html.split("<span", 1)[1].split("</span>", 1)[0].lower()
 print("ok")
