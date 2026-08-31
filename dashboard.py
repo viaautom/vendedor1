@@ -152,11 +152,20 @@ def formatar_data(iso: str) -> str:
         return "—"
 
 
-def copiar_link_html(link: str, label: str = "📋 Copiar link") -> str:
+def gerar_link_curto(link: str, prefixo: str = "link") -> str:
+    link = (link or "").strip()
+    if not link:
+        return prefixo
+    codigo = hashlib.sha1(link.encode("utf-8")).hexdigest()[:6].upper()
+    return f"{prefixo}/{codigo}"
+
+
+def copiar_link_html(link: str, label: str | None = None) -> str:
     link = (link or "").strip()
     if not link:
         return ""
 
+    label = label or gerar_link_curto(link)
     payload = json.dumps(link)
     safe_label = json.dumps(label)
     success_label = json.dumps("✅ Copiado")
@@ -178,9 +187,10 @@ def copiar_link_html(link: str, label: str = "📋 Copiar link") -> str:
         "
         style="
             display: inline-flex; align-items: center; justify-content: center;
-            padding: 0.35rem 0.6rem; margin-top: 0.35rem; border: 1px solid rgba(148,163,184,0.35);
-            border-radius: 0.55rem; background: rgba(15, 23, 42, 0.8); color: #e2e8f0;
-            cursor: pointer; font-size: 0.75rem; font-weight: 600;
+            gap: 0.35rem; padding: 0.35rem 0.7rem; margin-top: 0.35rem; border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 0.55rem; background: linear-gradient(180deg, #f8fafc, #edf4ff); color: #0f172a;
+            cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em;
+            box-shadow: 0 6px 14px rgba(15,23,42,0.06);
         "
     >{label}</button>
     """
@@ -284,8 +294,7 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
             )
             link_afiliado = oferta.get('link_afiliado')
             if link_afiliado:
-                st.code(link_afiliado, language="text")
-                st.markdown(copiar_link_html(link_afiliado), unsafe_allow_html=True)
+                st.markdown(copiar_link_html(link_afiliado, gerar_link_curto(link_afiliado)), unsafe_allow_html=True)
             st.markdown(
                 ui.send_status_html(
                     bool(oferta.get("enviado_telegram")),
