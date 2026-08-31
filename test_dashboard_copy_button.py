@@ -10,6 +10,7 @@ spec.loader.exec_module(mod)
 assert hasattr(mod, "copiar_link_html"), "Função de cópia do link não encontrada"
 html = mod.copiar_link_html("https://exemplo.com/produto/123")
 assert "navigator.clipboard" in html.lower()
-assert "https://exemplo.com/produto/123" in html
-assert "Copiar link" in html
+assert "link/" in html.lower()
+assert "copiar" in html.lower()
+assert "https://exemplo.com/produto/123" not in html.split("onclick=", 1)[0]
 print("ok")

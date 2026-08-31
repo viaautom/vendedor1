@@ -168,31 +168,22 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
     label = label or gerar_link_curto(link)
     payload = json.dumps(link)
     safe_label = json.dumps(label)
-    success_label = json.dumps("✅ Copiado")
+    success_label = json.dumps("Copiado")
 
     return f"""
-    <button
-        type="button"
-        onclick="
-            const texto = {payload};
-            navigator.clipboard.writeText(texto)
-                .then(() => {{
-                    this.innerText = {success_label};
-                    setTimeout(() => this.innerText = {safe_label}, 1200);
-                }})
-                .catch(() => {{
-                    this.innerText = '❌ Falha';
-                    setTimeout(() => this.innerText = {safe_label}, 1400);
-                }});
-        "
-        style="
-            display: inline-flex; align-items: center; justify-content: center;
-            gap: 0.35rem; padding: 0.35rem 0.7rem; margin-top: 0.35rem; border: 1px solid rgba(148,163,184,0.35);
-            border-radius: 0.55rem; background: linear-gradient(180deg, #f8fafc, #edf4ff); color: #0f172a;
-            cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em;
-            box-shadow: 0 6px 14px rgba(15,23,42,0.06);
-        "
-    >{label}</button>
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; flex-wrap:wrap;">
+        <span style="font-size:0.78rem; color:#6a6a6a; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">{label}</span>
+        <button
+            type="button"
+            onclick='const texto = {payload}; navigator.clipboard.writeText(texto).then(() => {{ this.innerText = {success_label}; setTimeout(() => this.innerText = "Copiar", 1200); }}).catch(() => {{ this.innerText = "Falha"; setTimeout(() => this.innerText = "Copiar", 1400); }});'
+            style="
+                display: inline-flex; align-items: center; justify-content: center;
+                gap: 0.35rem; padding: 0.32rem 0.7rem; border: 1px solid rgba(10,10,10,0.12);
+                border-radius: 0.55rem; background: #f8f5ef; color: #0a0a0a;
+                cursor: pointer; font-size: 0.72rem; font-weight: 600; line-height: 1;
+            "
+        >Copiar</button>
+    </div>
     """
 
 
