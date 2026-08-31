@@ -247,6 +247,9 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
                 f'{"🟢 disponível" if oferta.get("disponivel") else "🔴 esgotado"}</div>',
                 unsafe_allow_html=True,
             )
+            link_afiliado = oferta.get('link_afiliado')
+            if link_afiliado:
+                st.code(link_afiliado, language="text")
             st.markdown(
                 ui.send_status_html(
                     bool(oferta.get("enviado_telegram")),
