@@ -170,8 +170,14 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
     safe_link = html.escape(link, quote=True)
 
     return f"""
-    <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; flex-wrap:wrap;">
-        <span style="font-size:0.78rem; color:#6a6a6a; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">{safe_label}</span>
+    <div style="display:flex; align-items:center; gap:0.6rem; margin-top:0.35rem; flex-wrap:wrap;">
+        <span style="
+            display:inline-flex; align-items:center; justify-content:center;
+            padding:0.32rem 0.55rem; min-height:2rem; border:1px solid rgba(17,17,17,0.18);
+            border-radius:0.7rem; background:#fffdf9; color:#111111;
+            font-size:0.78rem; font-weight:700; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+            letter-spacing:0.03em;
+        ">{safe_label}</span>
         <button
             type="button"
             data-copy="{safe_link}"
@@ -198,9 +204,10 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
             "
             style="
                 display: inline-flex; align-items: center; justify-content: center;
-                gap: 0.35rem; padding: 0.32rem 0.7rem; border: 1px solid rgba(10,10,10,0.12);
-                border-radius: 0.55rem; background: #f8f5ef; color: #0a0a0a;
-                cursor: pointer; font-size: 0.72rem; font-weight: 600; line-height: 1;
+                gap: 0.35rem; padding: 0.42rem 0.8rem; border: 1px solid rgba(17,17,17,0.14);
+                border-radius: 0.75rem; background: #ffffff; color: #111111;
+                cursor: pointer; font-size: 0.74rem; font-weight: 700; line-height: 1;
+                box-shadow: 0 1px 0 rgba(17,17,17,0.05);
             "
         >Copiar</button>
     </div>
