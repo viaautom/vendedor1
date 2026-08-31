@@ -166,16 +166,36 @@ def copiar_link_html(link: str, label: str | None = None) -> str:
         return ""
 
     label = label or gerar_link_curto(link)
-    payload = json.dumps(link)
-    safe_label = json.dumps(label)
-    success_label = json.dumps("Copiado")
+    safe_label = html.escape(label, quote=True)
+    safe_link = html.escape(link, quote=True)
 
     return f"""
     <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.35rem; flex-wrap:wrap;">
-        <span style="font-size:0.78rem; color:#6a6a6a; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">{label}</span>
+        <span style="font-size:0.78rem; color:#6a6a6a; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;">{safe_label}</span>
         <button
             type="button"
-            onclick='const texto = {payload}; navigator.clipboard.writeText(texto).then(() => {{ this.innerText = {success_label}; setTimeout(() => this.innerText = "Copiar", 1200); }}).catch(() => {{ this.innerText = "Falha"; setTimeout(() => this.innerText = "Copiar", 1400); }});'
+            data-copy="{safe_link}"
+            onclick="
+                const texto = this.dataset.copy || '';
+                const copiar = () => {{
+                    if (navigator.clipboard && window.isSecureContext) {{
+                        return navigator.clipboard.writeText(texto);
+                    }}
+                    const area = document.createElement('textarea');
+                    area.value = texto;
+                    area.setAttribute('readonly', '');
+                    area.style.position = 'fixed';
+                    area.style.left = '-9999px';
+                    document.body.appendChild(area);
+                    area.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(area);
+                    return ok ? Promise.resolve() : Promise.reject(new Error('copy-fallback-failed'));
+                }};
+                copiar()
+                    .then(() => {{ this.innerText = 'Copiado'; setTimeout(() => this.innerText = 'Copiar', 1200); }})
+                    .catch(() => {{ this.innerText = 'Falha'; setTimeout(() => this.innerText = 'Copiar', 1400); }});
+            "
             style="
                 display: inline-flex; align-items: center; justify-content: center;
                 gap: 0.35rem; padding: 0.32rem 0.7rem; border: 1px solid rgba(10,10,10,0.12);
