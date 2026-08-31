@@ -3,6 +3,7 @@ import csv
 import hashlib
 import html
 import io
+import json
 import re
 import urllib.parse
 from datetime import datetime
@@ -151,6 +152,40 @@ def formatar_data(iso: str) -> str:
         return "—"
 
 
+def copiar_link_html(link: str, label: str = "📋 Copiar link") -> str:
+    link = (link or "").strip()
+    if not link:
+        return ""
+
+    payload = json.dumps(link)
+    safe_label = json.dumps(label)
+    success_label = json.dumps("✅ Copiado")
+
+    return f"""
+    <button
+        type="button"
+        onclick="
+            const texto = {payload};
+            navigator.clipboard.writeText(texto)
+                .then(() => {{
+                    this.innerText = {success_label};
+                    setTimeout(() => this.innerText = {safe_label}, 1200);
+                }})
+                .catch(() => {{
+                    this.innerText = '❌ Falha';
+                    setTimeout(() => this.innerText = {safe_label}, 1400);
+                }});
+        "
+        style="
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0.35rem 0.6rem; margin-top: 0.35rem; border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 0.55rem; background: rgba(15, 23, 42, 0.8); color: #e2e8f0;
+            cursor: pointer; font-size: 0.75rem; font-weight: 600;
+        "
+    >{label}</button>
+    """
+
+
 def render_offer_edit_form(oferta: dict, cfg: dict):
     with st.form(f"form_edit_{oferta['id']}"):
         nome = st.text_input("Nome", value=oferta.get("nome", ""))
@@ -197,10 +232,10 @@ def render_offer_edit_form(oferta: dict, cfg: dict):
                     "destaque": 1 if destaque else 0,
                 },
             )
-            del st.session_state["editando_id"]
+            st.session_state.pop("editando_id", None)
             st.rerun()
         if cancelar:
-            del st.session_state["editando_id"]
+            st.session_state.pop("editando_id", None)
             st.rerun()
 
 
@@ -250,6 +285,7 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
             link_afiliado = oferta.get('link_afiliado')
             if link_afiliado:
                 st.code(link_afiliado, language="text")
+                st.markdown(copiar_link_html(link_afiliado), unsafe_allow_html=True)
             st.markdown(
                 ui.send_status_html(
                     bool(oferta.get("enviado_telegram")),
@@ -286,7 +322,10 @@ def render_offer_row(oferta: dict, grupos: list[dict], cfg: dict):
                         st.error("Falha — confira '📲 Grupos'.")
         with col_edit:
             if st.button("✏️", key=f"edit_{oferta['id']}", use_container_width=True, help="Editar"):
-                st.session_state["editando_id"] = oferta["id"]
+                if st.session_state.get("editando_id") == oferta["id"]:
+                    st.session_state.pop("editando_id", None)
+                else:
+                    st.session_state["editando_id"] = oferta["id"]
                 st.rerun()
         with col_del:
             if st.button("🗑️", key=f"del_{oferta['id']}", use_container_width=True, help="Remover do repositório"):

@@ -13,32 +13,31 @@ import config
 MONO_FONT = "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
 
-def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a14") -> str:
+def base_css(accent: str = "#0ea5e9", accent2: str = "#7c3aed", bg: str = "#eef4fb") -> str:
     return f"""
     <style>
     :root {{
         --accent: {accent};
         --accent-2: {accent2};
-        --accent-soft: {accent}22;
-        --ok: #34d399;
-        --pending: #f87171;
+        --accent-soft: {accent}18;
+        --ok: #16a34a;
+        --pending: #ef4444;
         --bg: {bg};
-        --card-bg: rgba(20, 26, 42, 0.55);
-        --card-border: {accent}40;
-        --text-muted: #8b93a7;
+        --card-bg: rgba(255, 255, 255, 0.9);
+        --card-border: rgba(148, 163, 184, 0.28);
+        --text-muted: #53627a;
         --mono: {MONO_FONT};
+        --text: #111827;
     }}
 
     #MainMenu, footer, header {{visibility: hidden;}}
 
     .stApp {{
         background:
-            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-            radial-gradient(circle at 15% 0%, {accent2}22, transparent 45%),
-            radial-gradient(circle at 85% 100%, {accent}1f, transparent 45%),
-            var(--bg);
-        background-size: 42px 42px, 42px 42px, auto, auto, auto;
+            radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 25%),
+            radial-gradient(circle at bottom right, rgba(124, 58, 237, 0.1), transparent 22%),
+            linear-gradient(180deg, #f7fbff 0%, var(--bg) 100%);
+        color: var(--text);
     }}
 
     .hero {{
@@ -48,13 +47,12 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
         padding: 1.75rem 2rem;
         margin-bottom: 1.5rem;
         border-radius: 20px;
-        background: linear-gradient(135deg, {accent}24, {accent2}1a);
-        border: 1px solid var(--card-border);
-        box-shadow: 0 0 40px {accent}14;
-        backdrop-filter: blur(10px);
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.10), rgba(124, 58, 237, 0.04));
+        border: 1px solid rgba(148, 163, 184, 0.20);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     }}
     .hero-emoji {{ font-size: 2.5rem; line-height: 1; }}
-    .hero h1 {{ margin: 0; font-size: 1.7rem; }}
+    .hero h1 {{ margin: 0; font-size: 1.7rem; color: var(--text); }}
     .hero p {{ margin: 0.2rem 0 0; color: var(--text-muted); }}
 
     .stat-card {{
@@ -63,7 +61,7 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
         border-radius: 16px;
         padding: 1rem 1.1rem;
         height: 100%;
-        backdrop-filter: blur(8px);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
     }}
     .stat-icon {{ font-size: 1.3rem; opacity: 0.85; }}
     .stat-value {{ font-size: 1.6rem; font-weight: 700; margin-top: 0.15rem; font-family: var(--mono); }}
@@ -103,12 +101,12 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
         border-radius: 18px !important;
         border-color: var(--card-border) !important;
         background: var(--card-bg) !important;
-        backdrop-filter: blur(8px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
     }}
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        transform: translateY(-3px);
-        box-shadow: 0 0 28px {accent}33;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
     }}
 
     .offer-img {{
@@ -226,6 +224,14 @@ def base_css(accent: str = "#22d3ee", accent2: str = "#8b5cf6", bg: str = "#060a
 
     .stButton > button, .stLinkButton > a {{
         border-radius: 10px !important;
+        border: 1px solid rgba(148, 163, 184, 0.35) !important;
+        background: linear-gradient(180deg, #ffffff, #f3f8ff) !important;
+        color: var(--text) !important;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04) !important;
+    }}
+    .stButton > button:hover, .stLinkButton > a:hover {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 8px 16px rgba(14, 165, 233, 0.12) !important;
     }}
     </style>
     """
