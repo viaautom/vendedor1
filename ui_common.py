@@ -34,12 +34,13 @@ def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffa
         --lavender: #b8a4ed;
         --peach: #ffb084;
         --ochre: #e8b94a;
+        --cream: #fffaf0;
     }}
 
     #MainMenu, footer, header {{visibility: hidden;}}
 
     .stApp {{
-        background: var(--bg);
+        background: var(--cream);
         color: var(--text);
         font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }}
@@ -48,31 +49,33 @@ def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffa
         display: flex;
         align-items: center;
         gap: 1rem;
-        padding: 1.5rem 1.8rem;
+        padding: 1.75rem 1.8rem;
         margin-bottom: 1.5rem;
-        border-radius: 22px;
-        background: rgba(255,255,255,0.3);
-        border: 1px solid var(--card-border);
+        border-radius: 26px;
+        background: linear-gradient(135deg, rgba(255, 77, 139, 0.08), rgba(184, 164, 237, 0.1), rgba(255, 255, 255, 0.4));
+        border: 1px solid rgba(10, 10, 10, 0.08);
         box-shadow: none;
     }}
-    .hero-emoji {{ font-size: 2.3rem; line-height: 1; }}
+    .hero-emoji {{ font-size: 2.5rem; line-height: 1; }}
     .hero h1 {{
         margin: 0;
-        font-size: clamp(2rem, 3vw, 3rem);
+        font-size: clamp(2.2rem, 3vw, 3.2rem);
         font-weight: 500;
-        letter-spacing: -2px;
+        letter-spacing: -2.2px;
         color: var(--text);
         font-family: "Plain Black", "Inter", sans-serif;
     }}
-    .hero p {{ margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.98rem; }}
+    .hero p {{ margin: 0.25rem 0 0; color: var(--text-muted); font-size: 1rem; }}
 
     .stat-card {{
-        background: var(--card-bg);
+        background: linear-gradient(180deg, #fffdf9 0%, var(--card-bg) 100%);
         border: 1px solid var(--card-border);
         border-radius: 18px;
         padding: 1rem 1.1rem;
         height: 100%;
     }}
+    .stat-card:nth-child(odd) {{ background: linear-gradient(180deg, rgba(255, 77, 139, 0.06), #faf5e8); }}
+    .stat-card:nth-child(even) {{ background: linear-gradient(180deg, rgba(184, 164, 237, 0.08), #faf5e8); }}
     .stat-icon {{ font-size: 1.3rem; opacity: 0.85; }}
     .stat-value {{ font-size: 1.6rem; font-weight: 700; margin-top: 0.15rem; font-family: var(--mono); }}
     .stat-label {{ color: var(--text-muted); font-size: 0.85rem; }}
@@ -102,9 +105,11 @@ def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffa
     }}
 
     .section-title {{
-        font-size: 1.15rem;
+        font-size: 1.2rem;
         font-weight: 700;
-        margin: 0.5rem 0 0.75rem;
+        margin: 0.8rem 0 0.9rem;
+        color: var(--text);
+        letter-spacing: -0.3px;
     }}
 
     div[data-testid="stVerticalBlockBorderWrapper"] {{
@@ -235,13 +240,13 @@ def base_css(accent: str = "#0a0a0a", accent2: str = "#ff4d8b", bg: str = "#fffa
     .stButton > button, .stLinkButton > a {{
         border-radius: 12px !important;
         border: 1px solid transparent !important;
-        background: var(--accent) !important;
+        background: linear-gradient(180deg, #0a0a0a, #1f1f1f) !important;
         color: #ffffff !important;
         font-weight: 600 !important;
         box-shadow: none !important;
     }}
     .stButton > button:hover, .stLinkButton > a:hover {{
-        background: #1f1f1f !important;
+        background: linear-gradient(180deg, #1f1f1f, #0a0a0a) !important;
         border-color: transparent !important;
         box-shadow: none !important;
     }}
